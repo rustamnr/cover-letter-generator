@@ -8,62 +8,53 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
-	"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
 )
 
 const (
-	hhAuthURL        = "https://hh.ru/oauth/authorize"
-	hhTokenURL       = "https://hh.ru/oauth/token"
-	hhResumesMineURL = "https://api.hh.ru/resumes/mine"
-	redirectURI      = "http://localhost:8080/auth/callback"
+	hhAuthURL  = "https://hh.ru/oauth/authorize"
+	hhTokenURL = "https://hh.ru/oauth/token"
+	hhAPIURL   = "https://api.hh.ru"
 )
 
 var (
 	clientID     string
 	clientSecret string
+	redirectURI  string
 )
 
+// HHClient - клиент для работы с hh.ru API
 type HHClient struct {
-	httpClient  *resty.Client
-	accessToken string
+	httpClient *resty.Client
 }
 
+// NewHHClient создает новый клиент
 func NewHHClient() *HHClient {
 	return &HHClient{
 		httpClient: resty.New(),
 	}
 }
 
-// 🔹 Авторизация пользователя через hh.ru
+// 🔹 1. Авторизация: редирект на hh.ru
 func (h *HHClient) AuthHandler(c *gin.Context) {
 	authURL := fmt.Sprintf("%s?response_type=code&client_id=%s&redirect_uri=%s",
 		hhAuthURL, clientID, url.QueryEscape(redirectURI))
 	c.Redirect(http.StatusFound, authURL)
 }
 
-// 🔹 Обработка редиректа от hh.ru и обмен кода на access_token
-func (h *HHClient) AuthCallbackHandler(c *gin.Context) {
+// 🔹 2. Получение access_token
+func (h *HHClient) CallbackHandler(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization code not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code not found"})
 		return
 	}
 
-	token, err := h.getAccessToken(code)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get access token"})
-		log.Println("Error getting access token:", err)
-		return
-	}
-
-	h.accessToken = token
-	c.JSON(http.StatusOK, gin.H{"message": "User authenticated", "access_token": token})
-}
-
-// 🔹 Обмен кода на access_token
-func (h *HHClient) getAccessToken(code string) (string, error) {
+	// Запрос на обмен `code` -> `access_token`
 	resp, err := h.httpClient.R().
 		SetFormData(map[string]string{
 			"grant_type":    "authorization_code",
@@ -75,89 +66,123 @@ func (h *HHClient) getAccessToken(code string) (string, error) {
 		Post(hhTokenURL)
 
 	if err != nil {
-		return "", err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка запроса к hh.ru"})
+		return
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("failed to get token: %s", resp.String())
+		c.JSON(resp.StatusCode(), gin.H{"error": resp.String()})
+		return
 	}
 
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+	var tokenData map[string]interface{}
+	if err := json.Unmarshal(resp.Body(), &tokenData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка обработки ответа"})
+		return
+	}
+
+	accessToken, ok := tokenData["access_token"].(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "access_token not found"})
+		return
+	}
+
+	// Получаем user_id
+	userID, err := h.getUserID(accessToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения user_id"})
+		return
+	}
+
+	// Сохраняем access_token в сессию
+	session := sessions.Default(c)
+	session.Set("access_token", accessToken)
+	session.Set("user_id", userID)
+	session.Save()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Успешная авторизация!",
+		"user_id":      userID,
+		"access_token": accessToken,
+	})
+}
+
+// 🔹 3. Получение user_id (чтобы понимать, кто залогинен)
+func (h *HHClient) getUserID(accessToken string) (string, error) {
+	resp, err := h.httpClient.R().
+		SetHeader("Authorization", "Bearer "+accessToken).
+		SetHeader("Accept", "application/json").
+		Get(hhAPIURL + "/me")
+
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		return "", fmt.Errorf("ошибка получения user_id")
+	}
+
+	var userData map[string]interface{}
+	if err := json.Unmarshal(resp.Body(), &userData); err != nil {
 		return "", err
 	}
 
-	accessToken, ok := result["access_token"].(string)
+	userID, ok := userData["id"].(string)
 	if !ok {
-		return "", fmt.Errorf("access_token not found in response")
+		return "", fmt.Errorf("user_id не найден")
 	}
 
-	return accessToken, nil
+	return userID, nil
 }
 
-// 🔹 Получение резюме пользователя
-// 🔹 Обработчик запроса к API hh.ru
+// 🔹 4. Получение резюме залогиненного пользователя
 func (h *HHClient) GetUserResumesHandler(c *gin.Context) {
-	if h.accessToken == "" {
+	session := sessions.Default(c)
+	accessToken := session.Get("access_token")
+	userID := session.Get("user_id")
+
+	if accessToken == nil || userID == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	resumes, err := h.getUserResumes()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user resumes"})
+	resp, err := h.httpClient.R().
+		SetHeader("Authorization", "Bearer "+accessToken.(string)).
+		SetHeader("Accept", "application/json").
+		Get(hhAPIURL + "/resumes/mine")
+
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка запроса"})
 		return
 	}
 
-	c.JSON(http.StatusOK, resumes)
-}
-
-// 🔹 Внутренний метод для работы с API hh.ru
-func (h *HHClient) getUserResumes() (map[string]interface{}, error) {
-	resp, err := h.httpClient.R().
-		SetHeader("Authorization", "Bearer "+h.accessToken).
-		SetHeader("Accept", "application/json").
-		Get(hhResumesMineURL)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("ошибка запроса: %s", resp.String())
-	}
-
 	var result map[string]interface{}
-	err = json.Unmarshal(resp.Body(), &result)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка обработки данных"})
+		return
 	}
 
-	return result, nil
+	c.JSON(http.StatusOK, result)
 }
 
-// 🔹 Запуск сервера
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Ошибка загрузки .env файла")
-	}
-
-	// 🔹 Читаем переменные
 	clientID = os.Getenv("CLIENT_ID")
 	clientSecret = os.Getenv("CLIENT_SECRET")
 
-	port := "8080"
-	if p := os.Getenv("PORT"); p != "" {
-		port = p
+	if clientID == "" || clientSecret == "" {
+		log.Fatal("Не найдены переменные окружения")
 	}
 
 	hhClient := NewHHClient()
 	router := gin.Default()
 
-	router.GET("/", hhClient.AuthHandler)
-	router.GET("/auth/callback", hhClient.AuthCallbackHandler)
-	router.GET("/resumes/main", hhClient.GetUserResumesHandler)
+	// Настройка сессий с использованием cookie
+	store := cookie.NewStore([]byte("secret"))
+	router.Use(sessions.Sessions("my_session", store))
 
-	log.Println("Server running on http://localhost:" + port)
-	log.Fatal(router.Run(":" + port))
+	// 🔹 Авторизация
+	router.GET("/auth", hhClient.AuthHandler)
+	router.GET("/auth/callback", hhClient.CallbackHandler)
+
+	// 🔹 Доступ к резюме
+	router.GET("/resumes/mine", hhClient.GetUserResumesHandler)
+
+	log.Println("Сервер запущен на http://localhost:8080")
+	log.Fatal(router.Run(":8080"))
 }
