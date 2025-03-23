@@ -1,16 +1,15 @@
 package main
 
 import (
-	"log"
-
 	"github.com/joho/godotenv"
+	"github.com/rustamnr/cover-letter-generator/internal/logger"
 	"github.com/rustamnr/cover-letter-generator/internal/server"
 )
 
 func main() {
 	// Загружаем .env
 	if err := godotenv.Load(); err != nil {
-		log.Println("Не найден .env файл")
+		logger.Fatalf("failed to load .env file: %v", err)
 	}
 
 	// Запуск сервера

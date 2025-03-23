@@ -48,6 +48,7 @@ func registerRoutes(router *gin.Engine) {
 	api.Use(middleware.AuthMiddleware())
 	{
 		api.GET("/resumes", hhHandler.GetResumesHandler)
+		api.GET("/negotiations", hhHandler.GetUserApplicationsHandler)
 		router.POST("/generate/chatgpt", chatGPTHandler.HandleChatGPT)
 		api.POST("/deepseek", deepSeekHandler.HandleDeepSeek)
 	}

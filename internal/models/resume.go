@@ -1,63 +1,83 @@
 package models
 
-// UserInfo содержит основную информацию о пользователе
-type UserInfo struct {
-	ID         string `json:"id"`
-	FirstName  string `json:"first_name"`
-	LastName   string `json:"last_name"`
-	MiddleName string `json:"middle_name"`
-	BirthDate  string `json:"birth_date"`
-	Location   struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	} `json:"area"`
-	Contact struct {
-		Email string `json:"email"`
-		Phone string `json:"phone"`
-	} `json:"contact"`
+import "encoding/json"
+
+type APIResumeResponse struct {
+	Items []HHResume `json:"items"`
 }
 
-// WorkExperience описывает опыт работы пользователя
+type HHResume struct {
+	ID         string           `json:"id"`
+	FirstName  string           `json:"first_name"`
+	LastName   string           `json:"last_name"`
+	MiddleName *string          `json:"middle_name"`
+	Title      string           `json:"title"`
+	CreatedAt  string           `json:"created_at"`
+	UpdatedAt  string           `json:"updated_at"`
+	Area       Location         `json:"area"`
+	Contact    []Contact        `json:"contact"`
+	Experience []WorkExperience `json:"experience"`
+	Education  EducationInfo    `json:"education"`
+	Salary     *Salary          `json:"salary"`
+}
+
+type Location struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type Contact struct {
+	Type        ContactType     `json:"type"`
+	Value       json.RawMessage `json:"value"` // Может быть строкой (email) или объектом (телефон)
+	Preferred   bool            `json:"preferred"`
+	Verified    bool            `json:"verified"`
+	Comment     *string         `json:"comment"`
+	ParsedValue string          `json:"-"` // Распарсенное значение (email или телефон)
+}
+
+type ContactType struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// Структура для хранения телефонных данных
+type PhoneValue struct {
+	Country string `json:"country"`
+	City    string `json:"city"`
+	Number  string `json:"number"`
+}
+
 type WorkExperience struct {
-	Company     string `json:"company"`
-	Position    string `json:"position"`
-	StartDate   string `json:"start"`
-	EndDate     string `json:"end"`
-	Description string `json:"description"`
+	Company    string      `json:"company"`
+	Position   string      `json:"position"`
+	StartDate  string      `json:"start"`
+	EndDate    *string     `json:"end"`
+	Area       *Location   `json:"area,omitempty"`
+	Industry   *Industry   `json:"industry,omitempty"`
+	Industries []Industry  `json:"industries,omitempty"`
 }
 
-// Education содержит данные об образовании
+type Industry struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type EducationInfo struct {
+	Level   EducationLevel `json:"level"`
+	Primary []Education   `json:"primary"`
+}
+
+type EducationLevel struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type Education struct {
-	Level          string `json:"level"`
-	Institution    string `json:"institution"`
-	Faculty        string `json:"faculty"`
-	GraduationYear int    `json:"year"`
+	Name string `json:"name"`
 }
 
-// Skills представляет список навыков
-type Skills struct {
-	SkillList []string `json:"skills"`
-}
-
-// Language содержит информацию о языках
-type Language struct {
-	Name  string `json:"name"`
-	Level string `json:"level"`
-}
-
-// Salary описывает зарплатные ожидания
 type Salary struct {
-	Amount   int    `json:"amount"`
+	Amount   *int   `json:"amount"`
 	Currency string `json:"currency"`
 }
 
-// Resume объединяет все данные резюме
-type Resume struct {
-	UserInfo   UserInfo         `json:"user"`
-	Experience []WorkExperience `json:"experience"`
-	Education  Education        `json:"education"`
-	Skills     Skills           `json:"skills"`
-	Languages  []Language       `json:"languages"`
-	Salary     Salary           `json:"salary"`
-	Employment string           `json:"employment"`
-}
