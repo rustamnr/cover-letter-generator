@@ -47,9 +47,12 @@ func registerRoutes(router *gin.Engine) {
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware())
 	{
-		api.GET("/resumes", hhHandler.GetResumesHandler)
-		api.GET("/negotiations", hhHandler.GetUserApplicationsHandler)
+		api.GET("/resumes", hhHandler.GetUserResumes)
+		api.GET("/negotiations", hhHandler.GetUserApplications)
+		api.GET("/negotiation/", hhHandler.GetUserFirstApplication)
+		api.POST("/message", hhHandler.SendNewMessage)
 		router.POST("/generate/chatgpt", chatGPTHandler.HandleChatGPT)
 		api.POST("/deepseek", deepSeekHandler.HandleDeepSeek)
+		api.POST("/generate/deepseek")
 	}
 }

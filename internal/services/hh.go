@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/rustamnr/cover-letter-generator/internal/constants"
 )
 
 // HHService отвечает за работу с API hh.ru
@@ -43,8 +43,7 @@ func (s *HHService) GetAPIURL() string {
 
 // GetAuthURL возвращает ссылку для авторизации пользователя
 func (s *HHService) GetAuthURL() string {
-	authURL := "https://hh.ru/oauth/authorize"
-	return authURL + "?response_type=code&client_id=" + url.QueryEscape(s.clientID) + "&redirect_uri=" + url.QueryEscape(s.redirectURI)
+	return constants.GetAuthURL(s.clientID, s.redirectURI)
 }
 
 // ExchangeCodeForToken обменивает `code` на `access_token`
@@ -84,7 +83,7 @@ func (s *HHService) ExchangeCodeForToken(code string) (string, error) {
 func (s *HHService) GetUserID(accessToken string) (string, error) {
 	resp, err := s.client.R().
 		SetHeader("Authorization", "Bearer "+accessToken).
-		Get(s.apiURL + "/me")
+		Get(s.apiURL + constants.Me)
 
 	if err != nil || resp.StatusCode() != http.StatusOK {
 		return "", errors.New("ошибка запроса к API hh.ru")
