@@ -26,7 +26,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		if accessToken == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Access token is missing"})
 			c.Abort()
 			return
 		}

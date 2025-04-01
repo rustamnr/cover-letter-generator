@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"os"
 
 	"github.com/gin-contrib/sessions"
@@ -35,6 +36,14 @@ func registerRoutes(router *gin.Engine) {
 
 	// Настройка сессий
 	store := cookie.NewStore([]byte("secret"))
+	store.Options(sessions.Options{
+		Path:     "/",       // Доступность для всех путей
+		Domain:   "",        // Пусто = текущий домен
+		MaxAge:   86400 * 7, // Время жизни в секундах (7 дней)
+		Secure:   false,     // true для HTTPS только
+		HttpOnly: true,      // Запрет доступа из JavaScript
+		SameSite: http.SameSiteLaxMode,
+	})
 	router.Use(sessions.Sessions("session", store))
 
 	// HH.ru API
@@ -48,9 +57,12 @@ func registerRoutes(router *gin.Engine) {
 	api.Use(middleware.AuthMiddleware())
 	{
 		api.GET("/resumes", hhHandler.GetUserResumes)
+		api.POST("/resumes/select", hhHandler.SelectResume)
+		api.GET("/resumes/current", hhHandler.GetCurrentResume)
 		api.GET("/negotiations", hhHandler.GetUserApplications)
 		api.GET("/negotiation/", hhHandler.GetUserFirstApplication)
 		api.POST("/message", hhHandler.SendNewMessage)
+
 		router.POST("/generate/chatgpt", chatGPTHandler.HandleChatGPT)
 		api.POST("/deepseek", deepSeekHandler.HandleDeepSeek)
 		api.POST("/generate/deepseek")
