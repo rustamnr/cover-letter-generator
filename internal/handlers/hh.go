@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,6 +18,11 @@ import (
 // HHHandler отвечает за обработку запросов к hh.ru API
 type HHHandler struct {
 	hhService *services.HHService
+}
+
+type SessionResume struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
 }
 
 // NewHHHandler создает новый обработчик
@@ -45,35 +51,38 @@ func (h *HHHandler) CallbackHandler(c *gin.Context) {
 
 	userID, err := h.hhService.GetUserID(accessToken)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting user ID"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	session := sessions.Default(c)
-	session.Set("access_token", accessToken)
-	session.Set("user_id", userID)
-	session.Save()
+	session.Set(constants.AccessToken, accessToken)
+	session.Set(constants.UserId, userID)
+	if err = session.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "authorized", "user_id": userID, "access_token": accessToken})
 }
 
 // GetUserResumes получает список резюме текущего пользователя
 func (h *HHHandler) GetUserResumes(c *gin.Context) {
-	session := sessions.Default(c)
-	accessToken, ok := session.Get("access_token").(string)
-	if accessToken == "" {
-		authHeader := c.GetHeader("Authorization")
-		const bearerPrefix = "Bearer "
+	// session := sessions.Default(c)
+	// accessToken, ok := session.Get(constants.AccessToken).(string)
+	// if accessToken == "" {
+	// 	authHeader := c.GetHeader("Authorization")
+	// 	const bearerPrefix = "Bearer "
 
-		if strings.HasPrefix(authHeader, bearerPrefix) {
-			accessToken = strings.TrimPrefix(authHeader, bearerPrefix)
-			ok = true
-		}
-	}
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Отсутствует access_token"})
-		return
-	}
+	// 	if strings.HasPrefix(authHeader, bearerPrefix) {
+	// 		accessToken = strings.TrimPrefix(authHeader, bearerPrefix)
+	// 		ok = true
+	// 	}
+	// }
+	// if !ok {
+	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Отсутствует access_token"})
+	// 	return
+	// }
 
 	resp, err := h.hhService.GetClient().R().
 		SetHeader("Authorization", "Bearer "+accessToken).
@@ -95,19 +104,27 @@ func (h *HHHandler) GetUserResumes(c *gin.Context) {
 	}
 
 	resumesResp := apiResponse.Items
-
-	userResumes := make([]models.HHResume, len(resumesResp))
-	for i, resume := range resumesResp {
-		userResumes[i].ID = resume.ID
-		userResumes[i].Title = resume.Title
+	var userResumes []SessionResume
+	for _, resume := range resumesResp {
+		userResumes = append(userResumes, SessionResume{ID: resume.ID, Title: resume.Title})
 	}
 
-	c.Set("user_resumes", userResumes)
+	session.Set("user_resumes", userResumes)
+	if err = session.Save(); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, userResumes)
 }
 
+func init() {
+	gob.Register([]SessionResume{})
+}
+
 func (h *HHHandler) SelectResume(c *gin.Context) {
+	session := sessions.Default(c)
+
 	type titleReq struct {
 		Title string `json:"title"`
 	}
@@ -118,41 +135,40 @@ func (h *HHHandler) SelectResume(c *gin.Context) {
 	}
 	req.Title = strings.ToLower(req.Title)
 
-	h.GetUserResumes(c)
-	var userResumes []models.HHResume
-	resumesRaw, ok := c.Get("user_resumes")
-	if !ok {
+	resumesRaw := session.Get("user_resumes")
+	if resumesRaw == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
 		return
 	}
 
-	userResumes, ok = resumesRaw.([]models.HHResume)
+	userResumes, ok := resumesRaw.([]SessionResume)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
 		return
 	}
-
+	_ = userResumes
+	var resumeID string
 	for _, resume := range userResumes {
 		if strings.Contains(strings.ToLower(resume.Title), req.Title) {
-			session := sessions.Default(c)
-			session.Set("resume_id", resume.ID)
-			err:=session.Save()
-			if err!=nil{
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "error saving session"})
-				return
-			}
-			c.Set("resume_id", resume.ID)
-			c.JSON(http.StatusOK, gin.H{"message": "Resume selected: " + resume.Title, "id": resume.ID})
-			return
+			resumeID = resume.ID
+			break
 		}
 	}
+	session.Set("resume_id", resumeID)
+	err := session.Save()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error saving session"})
+		return
+	}
+	c.Set("resume_id", resumeID)
+	c.JSON(http.StatusOK, gin.H{"message": "Resume selected", "id": resumeID})
 
-	c.JSON(http.StatusNotFound, gin.H{"error": "resume not found"})
+	// c.JSON(http.StatusNotFound, gin.H{"error": "resume not found"})
 }
 
 func (h *HHHandler) GetCurrentResume(c *gin.Context) {
 	session := sessions.Default(c)
-	accessToken, ok := session.Get("access_token").(string)
+	accessToken, ok := session.Get(constants.AccessToken).(string)
 	if accessToken == "" {
 		authHeader := c.GetHeader("Authorization")
 		const bearerPrefix = "Bearer "
@@ -167,28 +183,30 @@ func (h *HHHandler) GetCurrentResume(c *gin.Context) {
 		return
 	}
 
-	rawId, exist := c.Get("resume_id") // session.Get("resume_id")
-	if !exist {
+	resumeID, ok := session.Get("resume_id").(string)
+	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is not set in context"})
 		return
 	}
-	if rawId == nil {
+	if resumeID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is not set in session"})
-		return
-	}
-	id, ok := rawId.(string)
-	if !ok || id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to cast resume ID"})
 		return
 	}
 	resp, err := h.hhService.GetClient().R().
 		SetHeader("Authorization", "Bearer "+accessToken).
-		Get(h.hhService.GetAPIURL() + constants.Resume + "/" + id)
+		Get(h.hhService.GetAPIURL() + fmt.Sprintf(constants.Resume, resumeID))
 	if err != nil || resp.StatusCode() != http.StatusOK {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resumes"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "error getting resumes"})
 		return
 	}
 
+	session.Set("current_resume_id", resumeID)
+	if err = session.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error saving session"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"current resume ID": resumeID})
 }
 
 // GetUserApplications получает список вакансий, на которые пользователь откликнулся
@@ -223,8 +241,8 @@ func (h *HHHandler) GetUserApplications(c *gin.Context) {
 	c.JSON(http.StatusOK, applicationsResponse)
 }
 
-// GetUserFirstApplication получает первую вакансию из списка откликов
-func (h *HHHandler) GetUserFirstApplication(c *gin.Context) {
+// GetUserFirstFoundedApplication получает первую вакансию из списка откликов
+func (h *HHHandler) GetUserFirstFoundedApplication(c *gin.Context) {
 	session := sessions.Default(c)
 	accessToken, ok := session.Get("access_token").(string)
 	if accessToken == "" {

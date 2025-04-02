@@ -7,13 +7,14 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/rustamnr/cover-letter-generator/internal/constants"
 )
 
 // AuthMiddleware проверяет наличие access_token в сессии
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
-		accessToken := session.Get("access_token")
+		accessToken := session.Get(constants.AccessToken)
 
 		// Если токен отсутствует в сессии, пробуем взять из заголовка Authorization
 		if accessToken == nil {
@@ -32,7 +33,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		at := fmt.Sprintf("%v", accessToken)
-		c.Set("access_token", at)
+		c.Set(constants.AccessToken, at)
 		c.Next()
 	}
 }

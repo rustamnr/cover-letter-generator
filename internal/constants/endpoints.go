@@ -8,7 +8,8 @@ const (
 	Negotiations           = "/negotiations"
 	NegotiationsNidMessage = Negotiations + "/%s/messages"
 	SelectResume           = "/resumes/select"
-	Resume                 = "/resumes/{resume_id}"
+	Resume                 = "/resumes/%s"
+	Vacancy                = "/vacancies/%s"
 )
 
 func GetAuthURL(clientID, redirectURI string) string {

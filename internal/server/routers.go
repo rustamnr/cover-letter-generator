@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
+	"github.com/rustamnr/cover-letter-generator/internal/constants"
 	"github.com/rustamnr/cover-letter-generator/internal/handlers"
 	"github.com/rustamnr/cover-letter-generator/internal/middleware"
 	"github.com/rustamnr/cover-letter-generator/internal/services"
@@ -59,8 +60,9 @@ func registerRoutes(router *gin.Engine) {
 		api.GET("/resumes", hhHandler.GetUserResumes)
 		api.POST("/resumes/select", hhHandler.SelectResume)
 		api.GET("/resumes/current", hhHandler.GetCurrentResume)
+		api.GET(constants.Vacancy)
 		api.GET("/negotiations", hhHandler.GetUserApplications)
-		api.GET("/negotiation/", hhHandler.GetUserFirstApplication)
+		api.GET("/negotiation/", hhHandler.GetUserFirstFoundedApplication)
 		api.POST("/message", hhHandler.SendNewMessage)
 
 		router.POST("/generate/chatgpt", chatGPTHandler.HandleChatGPT)
