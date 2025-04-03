@@ -3,10 +3,12 @@ package services
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
+	"github.com/rustamnr/cover-letter-generator/internal/models"
 )
 
 // HHService отвечает за работу с API hh.ru
@@ -100,4 +102,35 @@ func (s *HHService) GetUserID(accessToken string) (string, error) {
 	}
 
 	return userID, nil
+}
+
+func (s *HHService) GetResume(accessToken string, resumeID string) (*models.Resume, error) {
+	resp, err := s.client.R().
+		SetHeader("Authorization", "Bearer "+accessToken).
+		Get(s.apiURL + fmt.Sprintf(constants.Resume, resumeID))
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		return nil, err
+	}
+	var resume models.Resume
+	if err := json.Unmarshal(resp.Body(), &resume); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+	return &resume, nil
+}
+
+func (s *HHService) GetResumes(accessToken string) (*models.APIResumeResponse, error) {
+	resp, err := s.client.R().
+		SetHeader("Authorization", "Bearer "+accessToken).
+		Get(s.apiURL + constants.ResumesMine)
+
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		return nil, errors.New("error fetching resumes: " + resp.String())
+	}
+
+	var resumes models.APIResumeResponse
+	if err := json.Unmarshal(resp.Body(), &resumes); err != nil {
+		return nil, err
+	}
+
+	return &resumes, nil
 }

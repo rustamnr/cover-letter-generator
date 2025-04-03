@@ -9,6 +9,7 @@ const (
 	NegotiationsNidMessage = Negotiations + "/%s/messages"
 	SelectResume           = "/resumes/select"
 	Resume                 = "/resumes/%s"
+	Resumes                = "/resumes"
 	Vacancy                = "/vacancies/%s"
 )
 
