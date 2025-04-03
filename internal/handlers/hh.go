@@ -260,6 +260,28 @@ func (h *HHHandler) GetUserFirstFoundedApplication(c *gin.Context) {
 	c.JSON(http.StatusOK, applicationsResponse.Items[0])
 }
 
+func (h *HHHandler) GetVacancy(c *gin.Context) {
+	vacancyID := c.Query("id")
+	if vacancyID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is not set in context"})
+		return
+	}
+
+	accessToken, ok := c.Get("access_token")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
+		return
+	}
+
+	vacancy, err := h.hhService.GetVacancyByID(accessToken.(string), vacancyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
+	c.JSON(http.StatusOK, vacancy)
+}
+
 func (h *HHHandler) SendNewMessage(c *gin.Context) {
 	session := sessions.Default(c)
 	accessToken, ok := session.Get("access_token").(string)

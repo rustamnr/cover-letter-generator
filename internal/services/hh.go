@@ -134,3 +134,19 @@ func (s *HHService) GetResumes(accessToken string) (*models.APIResumeResponse, e
 
 	return &resumes, nil
 }
+
+func (s *HHService) GetVacancyByID(accessToken string, vacancyID string) (*models.Vacancy, error) {
+	resp, err := s.client.R().
+		SetHeader("Authorization", "Bearer "+accessToken).
+		Get(s.apiURL + fmt.Sprintf(constants.Vacancy, vacancyID))
+
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		return nil, errors.New("error fetching vacancy: " + resp.String())
+	}
+
+	var vacancy models.Vacancy
+	if err := json.Unmarshal(resp.Body(), &vacancy); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+	return &vacancy, nil
+}
