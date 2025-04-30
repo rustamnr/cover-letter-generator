@@ -28,7 +28,7 @@ func (h *DeepSeekHandler) HandleDeepSeek(c *gin.Context) {
 		return
 	}
 
-	response, err := h.deepSeekService.SendRequest(request.Prompt)
+	response, err := h.deepSeekService.SendDeepseekRequest(request.Prompt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -47,7 +47,7 @@ func (h *DeepSeekHandler) HandleDeepSeekCoverLetterGenerate(c *gin.Context) {
 		return
 	}
 
-	response, err := h.deepSeekService.SendRequest(request.Prompt)
+	response, err := h.deepSeekService.SendDeepseekRequest(request.Prompt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -54,6 +54,8 @@ func registerRoutes(router *gin.Engine) {
 	deepSeekHandler := handlers.NewDeepSeekHandler(deepSeekService)
 
 	api := router.Group("/api")
+	api.POST("/deepseek", deepSeekHandler.HandleDeepSeek)
+
 	api.Use(middleware.AuthMiddleware())
 	{
 		api.GET("/resumes", hhHandler.GetUserResumes)
@@ -65,7 +67,6 @@ func registerRoutes(router *gin.Engine) {
 		api.POST("/message", hhHandler.SendNewMessage)
 
 		router.POST("/generate/chatgpt", chatGPTHandler.HandleChatGPT)
-		api.POST("/deepseek", deepSeekHandler.HandleDeepSeek)
 		api.POST("/generate/deepseek")
 	}
 }
