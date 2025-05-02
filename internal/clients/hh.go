@@ -10,6 +10,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/joho/godotenv"
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
+	"github.com/rustamnr/cover-letter-generator/internal/logger"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
 )
 
@@ -19,6 +20,7 @@ type HHClient struct {
 	clientSecret string
 	redirectURI  string
 	client       *resty.Client
+	access_token string
 }
 
 func init() {
@@ -162,4 +164,48 @@ func (c *HHClient) GetVacancyByID(accessToken, vacancyID string) (*models.Vacanc
 	}
 
 	return &vacancy, nil
+}
+
+func (c *HHClient) GetUserApplications(accessToken string) ([]models.ApplicationItem, error) {
+	resp, err := c.client.R().
+		SetHeader("Authorization", "Bearer "+accessToken).
+		Get(c.apiURL + constants.Negotiations)
+
+	if err != nil {
+		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("не удалось получить список заявок: %s", resp.String())
+	}
+
+	var applications []models.ApplicationItem
+	if err := json.Unmarshal(resp.Body(), &applications); err != nil {
+		return nil, fmt.Errorf("ошибка при разборе ответа: %w", err)
+	}
+
+	return applications, nil
+}
+
+func (c *HHClient) GetUserFirstFoundedApplication(accessToken string) (*models.APIApplicationsResponse, error) {
+	resp, err := c.client.R().
+		SetHeader("Authorization", "Bearer "+accessToken).
+		Get(c.apiURL + "/negotiations" + "?" + "per_page=1")
+
+	logger.Infof("resp: %v", resp)
+
+	if err != nil || resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+	}
+
+	var applicationsResponse models.APIApplicationsResponse
+	if err := json.Unmarshal(resp.Body(), &applicationsResponse); err != nil {
+		return nil, fmt.Errorf("ошибка при разборе ответа: %w", err)
+	}
+
+	if len(applicationsResponse.Items) == 0 {
+		return nil, errors.New("заявки не найдены")
+	}
+
+	return &applicationsResponse, nil
 }

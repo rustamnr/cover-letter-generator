@@ -51,9 +51,10 @@ func registerRoutes(router *gin.Engine) {
 	api.Use(middleware.AuthMiddleware())
 	{
 		api.GET("/resumes", hhHandler.GetUserResumes)
-		// api.POST("/resumes/select", hhHandler.SelectResume)
+		api.POST("/resumes/select", hhHandler.SetCurrnetResume)
 		api.GET("/resumes/current", hhHandler.GetCurrentResume)
-		api.GET("/vacancy", hhHandler.GetVacancy)
+
+		api.GET("/vacancy", hhHandler.GetVacancyByID)
 		api.POST("/application", applicationHandler.HandleApplication) // Новый маршрут для обработки заявок
 	}
 }
