@@ -6,6 +6,7 @@ import (
 	"github.com/rustamnr/cover-letter-generator/internal/server"
 )
 
+
 func main() {
 	// Загружаем .env
 	if err := godotenv.Load(); err != nil {

@@ -2,6 +2,8 @@ package constants
 
 const (
 	HHURL                  = "https://hh.ru"
+	HHAPI                  = "https://api.hh.ru"
+	HHOAuth                = "https://hh.ru/oauth/token"
 	Authorize              = "/oauth/authorize"
 	Me                     = "/me"
 	ResumesMine            = "/resumes/mine"
@@ -12,7 +14,3 @@ const (
 	Resumes                = "/resumes"
 	Vacancy                = "/vacancies/%s"
 )
-
-func GetAuthURL(clientID, redirectURI string) string {
-	return HHURL + Authorize + "?response_type=code&client_id=" + clientID + "&redirect_uri=" + redirectURI
-}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
+	"github.com/rustamnr/cover-letter-generator/internal/clients"
 	"github.com/rustamnr/cover-letter-generator/internal/handlers"
 	"github.com/rustamnr/cover-letter-generator/internal/middleware"
 	"github.com/rustamnr/cover-letter-generator/internal/services"
@@ -15,24 +16,19 @@ import (
 
 // registerRoutes настраивает маршруты API
 func registerRoutes(router *gin.Engine) {
-	// hhService := services.NewResumeService("https://api.hh.ru")
-	// resumeHandler := handlers.NewResumeHandler(hhService)
-
-	hhService := services.NewHHService(
-		os.Getenv("HH_CLIENT_ID"),
-		os.Getenv("HH_CLIENT_SECRET"),
-		os.Getenv("HH_REDIRECT_URI"),
-	)
-	chatGPTService := services.NewChatGPTService(
-		os.Getenv("CHATGPT_API_URL"),
-		os.Getenv("CHATGPT_API_KEY"),
-	)
-	deepSeekService := services.NewDeepSeekService(
+	// Инициализация клиентов
+	hhClient := clients.NewHHClient()
+	deepSeekClient := clients.NewDeepSeekService(
 		os.Getenv("DEEPSEEK_API_URL"),
 		os.Getenv("DEEPSEEK_API_KEY"),
 	)
 
-	hhHandler := handlers.NewHHHandler(hhService)
+	// Инициализация сервисов
+	applicationService := services.NewApplicationService(hhClient, deepSeekClient)
+
+	// Инициализация хендлеров
+	hhHandler := handlers.NewHHHandler(hhClient)
+	applicationHandler := handlers.NewApplicationHandler(applicationService)
 
 	// Настройка сессий
 	store := cookie.NewStore([]byte("secret"))
@@ -50,23 +46,14 @@ func registerRoutes(router *gin.Engine) {
 	router.GET("/auth", hhHandler.AuthHandler)
 	router.GET("/auth/callback", hhHandler.CallbackHandler)
 
-	chatGPTHandler := handlers.NewChatGPTHandler(chatGPTService)
-	deepSeekHandler := handlers.NewDeepSeekHandler(deepSeekService)
-
+	// API группы
 	api := router.Group("/api")
-	api.POST("/deepseek", deepSeekHandler.HandleDeepSeek)
-
 	api.Use(middleware.AuthMiddleware())
 	{
 		api.GET("/resumes", hhHandler.GetUserResumes)
-		api.POST("/resumes/select", hhHandler.SelectResume)
+		// api.POST("/resumes/select", hhHandler.SelectResume)
 		api.GET("/resumes/current", hhHandler.GetCurrentResume)
 		api.GET("/vacancy", hhHandler.GetVacancy)
-		api.GET("/negotiations", hhHandler.GetUserApplications)
-		api.GET("/negotiation/", hhHandler.GetUserFirstFoundedApplication)
-		api.POST("/message", hhHandler.SendNewMessage)
-
-		router.POST("/generate/chatgpt", chatGPTHandler.HandleChatGPT)
-		api.POST("/generate/deepseek")
+		api.POST("/application", applicationHandler.HandleApplication) // Новый маршрут для обработки заявок
 	}
 }

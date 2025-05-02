@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"os"
-
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -15,7 +13,9 @@ func InitLogger() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	// Output to console
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	// log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	log.Logger = log.Logger.With().CallerWithSkipFrameCount(3).Logger()
 }
 
 func Fatalf(format string, v ...interface{}) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
+	"github.com/rustamnr/cover-letter-generator/internal/helpers"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
 )
 
@@ -45,7 +46,7 @@ func (s *HHService) GetAPIURL() string {
 
 // GetAuthURL возвращает ссылку для авторизации пользователя
 func (s *HHService) GetAuthURL() string {
-	return constants.GetAuthURL(s.clientID, s.redirectURI)
+	return helpers.GetAuthURL(s.clientID, s.redirectURI)
 }
 
 // ExchangeCodeForToken обменивает `code` на `access_token`
