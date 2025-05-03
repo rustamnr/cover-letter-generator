@@ -209,3 +209,24 @@ func (c *HHClient) GetUserFirstFoundedApplication(accessToken string) (*models.A
 
 	return &applicationsResponse, nil
 }
+
+func (c *HHClient) GetSimilarVacancies(accessToken, resumeID string, queryParams map[string]string) (*models.SimilarVacanciesResponse, error) {
+	resp, err := c.client.R().
+		SetHeader("Authorization", "Bearer "+accessToken).
+		SetQueryParams(queryParams). // Устанавливаем параметры запроса
+		Get(c.apiURL + fmt.Sprintf("/resumes/%s/similar_vacancies", resumeID))
+	if err != nil {
+		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("не удалось получить похожие вакансии: %s", resp.String())
+	}
+
+	var similarVacancies models.SimilarVacanciesResponse
+	if err := json.Unmarshal(resp.Body(), &similarVacancies); err != nil {
+		return nil, fmt.Errorf("ошибка при разборе ответа: %w", err)
+	}
+
+	return &similarVacancies, nil
+}
+	

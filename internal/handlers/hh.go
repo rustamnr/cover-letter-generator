@@ -43,7 +43,14 @@ func (h *ApplicationHandler) HandleApplication(c *gin.Context) {
 		return
 	}
 
-	err := h.service.ProcessApplication(accessToken.(string), req.ResumeID, req.VacancyID)
+	session := sessions.Default(c)
+	resumeID, ok := session.Get(constants.CurrentResumeID).(string)
+	if !ok || resumeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "resume ID not found in session"})
+		return
+	}
+
+	_, err := h.service.GenerateCoverLetter(accessToken.(string), resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -205,7 +212,7 @@ func (h *HHHandler) GetCurrentResume(c *gin.Context) {
 
 // GetVacancyByID retrieves a vacancy by ID
 func (h *HHHandler) GetVacancyByID(c *gin.Context) {
-	vacancyID := c.Query("id")
+	vacancyID := c.Param("vacancy_id")
 	if vacancyID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "vacancy ID is required"})
 		return
@@ -369,6 +376,36 @@ func (h *HHHandler) GetUserFirstFoundedApplication(c *gin.Context) {
 	session.Save()
 
 	c.JSON(http.StatusOK, applicationsResponse.Items[0])
+}
+
+func (h *HHHandler) GetSimilarVacancies(c *gin.Context) {
+	session := sessions.Default(c)
+	accessToken, ok := session.Get(constants.AccessToken).(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
+		return
+	}
+
+	resumeID, ok := session.Get(constants.CurrentResumeID).(string)
+	if !ok || resumeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "resume ID not found in session"})
+		return
+	}
+
+	queryParams := map[string]string{
+		"per_page": "1",
+	}
+	vacancies, err := h.hhClient.GetSimilarVacancies(accessToken, resumeID, queryParams)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		return
+	}
+	if len(vacancies.Items) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "similar vacancies not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, vacancies.Items[0])
 }
 
 // func (h *HHHandler) GetVacancy(c *gin.Context) {

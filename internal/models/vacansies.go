@@ -10,7 +10,7 @@ type Vacancy struct {
 	Area               Area               `json:"area"`
 	Salary             *Salary            `json:"salary,omitempty"`
 	Employment         Employment         `json:"employment"`
-	Experience         Experience         `json:"experience"`
+	VacancyExperience  VacancyExperience  `json:"experience"`
 	Schedule           Schedule           `json:"schedule"`
 	ProfessionalRoles  []ProfessionalRole `json:"professional_roles"`
 	KeySkills          []KeySkill         `json:"key_skills"`
@@ -54,6 +54,55 @@ type Vacancy struct {
 	InsiderInterview       *InsiderInterview     `json:"insider_interview,omitempty"`
 }
 
+type VacancyForLLM struct {
+	ID          string            `json:"id"`          // Идентификатор вакансии
+	Name        string            `json:"name"`        // Название вакансии
+	Description string            `json:"description"` // Описание вакансии
+	Contacts    Contacts          `json:"contacts,omitempty"`
+	Location    string            `json:"location"`     // Локация (город)
+	Employment  string            `json:"employment"`   // Тип занятости
+	Experience  VacancyExperience `json:"experience"`   // Требуемый опыт работы
+	Schedule    Schedule          `json:"schedule"`     // График работы
+	KeySkills   []string          `json:"key_skills"`   // Ключевые навыки
+	CompanyName string            `json:"company_name"` // Название компании
+}
+
+func (v *Vacancy) VacancyToLLMModel() VacancyForLLM {
+	// Преобразуем ключевые навыки
+	var keySkills []string
+	for _, skill := range v.KeySkills {
+		keySkills = append(keySkills, skill.Name)
+	}
+
+	// Проверяем наличие контактов
+	var contacts Contacts
+	if v.Contacts != nil {
+		contacts = *v.Contacts
+	}
+
+	return VacancyForLLM{
+		ID:          v.ID,
+		Name:        v.Name,
+		Description: v.Description, // Если нужно, можно добавить очистку HTML-тегов
+		Contacts:    contacts,
+		Location:    v.Area.Name,
+		Employment:  v.Employment.Name,
+		Experience:  v.VacancyExperience,
+		Schedule:    v.Schedule,
+		KeySkills:   keySkills,
+		CompanyName: v.Employer.Name,
+	}
+}
+
+// SimilarVacanciesResponse представляет ответ от API /resumes/{resume_id}/similar_vacancies
+type SimilarVacanciesResponse struct {
+	Found   int       `json:"found"`    // Количество найденных вакансий
+	Items   []Vacancy `json:"items"`    // Список вакансий
+	Page    int       `json:"page"`     // Текущая страница
+	Pages   int       `json:"pages"`    // Общее количество страниц
+	PerPage int       `json:"per_page"` // Количество элементов на странице
+}
+
 type Employer struct {
 	ID           string    `json:"id"`
 	Name         string    `json:"name"`
@@ -91,9 +140,10 @@ type Contacts struct {
 }
 
 type Phone struct {
-	Country string `json:"country"`
-	City    string `json:"city"`
-	Number  string `json:"number"`
+	Country string  `json:"country"`
+	City    string  `json:"city"`
+	Number  string  `json:"number"`
+	Comment *string `json:"comment"` // Комментарий (может быть nil)
 }
 
 type Badge struct {
@@ -177,6 +227,11 @@ type Manager struct {
 type InsiderInterview struct {
 	ID  string `json:"id"`
 	URL string `json:"url"`
+}
+
+type VacancyExperience struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func (v *Vacancy) ShortInfo() string {

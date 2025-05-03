@@ -19,6 +19,67 @@ type APIResumeResponse struct {
 	Items []Resume `json:"items"`
 }
 
+type ResumeForLLM struct {
+	ID              string       `json:"id"`               // Идентификатор резюме
+	Title           string       `json:"title"`            // Название резюме
+	FirstName       string       `json:"first_name"`       // Имя
+	LastName        string       `json:"last_name"`        // Фамилия
+	Location        string       `json:"location"`         // Локация (город)
+	ContactEmail    string       `json:"contact_email"`    // Email
+	ContactPhone    string       `json:"contact_phone"`    // Телефон
+	TotalExperience int          `json:"total_experience"` // Общий опыт работы (в месяцах)
+	Skills          []string     `json:"skills"`           // Ключевые навыки
+	Experience      []Experience `json:"experience"`       // Опыт работы
+}
+
+func (r *Resume) ResumeToLLMModel() ResumeForLLM {
+	var contactEmail, contactPhone string
+
+	// Извлекаем email и телефон из контактов
+	for _, contact := range r.Contact {
+		if contact.Type.ID == "email" {
+			contactEmail = contact.Value.(string)
+		} else if contact.Type.ID == "cell" {
+			if phone, ok := contact.Value.(map[string]interface{}); ok {
+				if formatted, exists := phone["formatted"].(string); exists {
+					contactPhone = formatted
+				}
+			}
+		}
+	}
+
+	// Преобразуем ключевые навыки
+	var skills []string
+	for _, skill := range r.KeySkills {
+		skills = append(skills, skill.Name)
+	}
+
+	// Преобразуем опыт работы
+	var experience []Experience
+	for _, exp := range r.Experience {
+		experience = append(experience, Experience{
+			Company:     exp.Company,
+			Position:    exp.Position,
+			StartDate:   exp.StartDate,
+			EndDate:     exp.EndDate,
+			Description: exp.Description,
+		})
+	}
+
+	return ResumeForLLM{
+		ID:              r.ID,
+		Title:           r.Title,
+		FirstName:       r.FirstName,
+		LastName:        r.LastName,
+		Location:        r.Area.Name,
+		ContactEmail:    contactEmail,
+		ContactPhone:    contactPhone,
+		TotalExperience: r.TotalExperience.Months,
+		Skills:          skills,
+		Experience:      experience,
+	}
+}
+
 type Resume struct {
 	ID                string             `json:"id"`
 	Title             string             `json:"title"`

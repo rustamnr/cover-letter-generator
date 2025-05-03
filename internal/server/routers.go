@@ -53,6 +53,8 @@ func registerRoutes(router *gin.Engine) {
 		api.GET("/resumes", hhHandler.GetUserResumes)
 		api.POST("/resumes/select", hhHandler.SetCurrnetResume)
 		api.GET("/resumes/current", hhHandler.GetCurrentResume)
+		api.GET("/vacancies/similar", hhHandler.GetSimilarVacancies)
+		api.GET("/vacancies/:vacancy_id", hhHandler.GetVacancyByID)
 
 		api.GET("/vacancy", hhHandler.GetVacancyByID)
 		api.POST("/application", applicationHandler.HandleApplication) // Новый маршрут для обработки заявок
