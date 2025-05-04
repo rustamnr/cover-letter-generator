@@ -13,10 +13,18 @@ func NewHHProvider(client *clients.HHClient) *HHProvider {
 	return &HHProvider{client: client}
 }
 
-func (p *HHProvider) GetResumes(accessToken string) (*models.APIResumeResponse, error) {
-	return p.client.GetResumes(accessToken)
+func (h *HHProvider) GetResume(resumeID string) (*models.Resume, error) {
+	return h.client.GetResume(resumeID)
 }
 
-func (p *HHProvider) GetResume(accessToken, resumeID string) (*models.Resume, error) {
-	return p.client.GetResume(accessToken, resumeID)
+func (h *HHProvider) GetVacancyByID(vacancyID string) (*models.Vacancy, error) {
+	return h.client.GetVacancyByID(vacancyID)
+}
+
+func (h *HHProvider) GetFirstSimilarVacancy(resumeID string) (*models.Vacancy, error) {
+	return h.client.GetFirstSimilarVacancy(resumeID)
+}
+
+func (h *HHProvider) SetAccessToken(token string) {
+	h.client.SetAccessToken(token)
 }

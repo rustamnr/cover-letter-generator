@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/joho/godotenv"
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
 	"github.com/rustamnr/cover-letter-generator/internal/logger"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
@@ -20,14 +19,7 @@ type HHClient struct {
 	clientSecret string
 	redirectURI  string
 	client       *resty.Client
-	access_token string
-}
-
-func init() {
-	// Загружаем переменные окружения из .env файла
-	if err := godotenv.Load(); err != nil {
-		panic(fmt.Sprintf("ошибка загрузки .env файла: %v", err))
-	}
+	accessToken  string
 }
 
 // NewHHClient создает новый экземпляр HHClient
@@ -38,6 +30,14 @@ func NewHHClient() *HHClient {
 		clientSecret: os.Getenv("HH_CLIENT_SECRET"),
 		client:       resty.New(),
 	}
+}
+
+func (c *HHClient) SetAccessToken(token string) {
+	c.accessToken = token
+}
+
+func (c *HHClient) GetAccessToken() string {
+	return c.accessToken
 }
 
 // ExchangeCodeForToken обменивает `code` на `access_token`
@@ -101,9 +101,9 @@ func (c *HHClient) GetUserID(accessToken string) (string, error) {
 }
 
 // GetResume получает резюме по ID
-func (c *HHClient) GetResume(accessToken, resumeID string) (*models.Resume, error) {
+func (c *HHClient) GetResume(resumeID string) (*models.Resume, error) {
 	resp, err := c.client.R().
-		SetHeader("Authorization", "Bearer "+accessToken).
+		SetHeader("Authorization", "Bearer "+c.accessToken).
 		Get(c.apiURL + fmt.Sprintf(constants.Resume, resumeID))
 
 	if err != nil {
@@ -123,9 +123,9 @@ func (c *HHClient) GetResume(accessToken, resumeID string) (*models.Resume, erro
 }
 
 // GetResumes получает список резюме пользователя
-func (c *HHClient) GetResumes(accessToken string) (*models.APIResumeResponse, error) {
+func (c *HHClient) GetResumes() (*models.APIResumeResponse, error) {
 	resp, err := c.client.R().
-		SetHeader("Authorization", "Bearer "+accessToken).
+		SetHeader("Authorization", "Bearer "+c.accessToken).
 		Get(c.apiURL + constants.ResumesMine)
 
 	if err != nil {
@@ -145,9 +145,9 @@ func (c *HHClient) GetResumes(accessToken string) (*models.APIResumeResponse, er
 }
 
 // GetVacancyByID получает вакансию по ID
-func (c *HHClient) GetVacancyByID(accessToken, vacancyID string) (*models.Vacancy, error) {
+func (c *HHClient) GetVacancyByID(vacancyID string) (*models.Vacancy, error) {
 	resp, err := c.client.R().
-		SetHeader("Authorization", "Bearer "+accessToken).
+		SetHeader("Authorization", "Bearer "+c.accessToken).
 		Get(c.apiURL + fmt.Sprintf(constants.Vacancy, vacancyID))
 
 	if err != nil {
@@ -166,9 +166,9 @@ func (c *HHClient) GetVacancyByID(accessToken, vacancyID string) (*models.Vacanc
 	return &vacancy, nil
 }
 
-func (c *HHClient) GetUserApplications(accessToken string) ([]models.ApplicationItem, error) {
+func (c *HHClient) GetUserApplications() ([]models.ApplicationItem, error) {
 	resp, err := c.client.R().
-		SetHeader("Authorization", "Bearer "+accessToken).
+		SetHeader("Authorization", "Bearer "+c.accessToken).
 		Get(c.apiURL + constants.Negotiations)
 
 	if err != nil {
@@ -210,9 +210,9 @@ func (c *HHClient) GetUserFirstFoundedApplication(accessToken string) (*models.A
 	return &applicationsResponse, nil
 }
 
-func (c *HHClient) GetSimilarVacancies(accessToken, resumeID string, queryParams map[string]string) (*models.SimilarVacanciesResponse, error) {
+func (c *HHClient) GetSimilarVacancies(resumeID string, queryParams map[string]string) (*models.SimilarVacanciesResponse, error) {
 	resp, err := c.client.R().
-		SetHeader("Authorization", "Bearer "+accessToken).
+		SetHeader("Authorization", "Bearer "+c.accessToken).
 		SetQueryParams(queryParams). // Устанавливаем параметры запроса
 		Get(c.apiURL + fmt.Sprintf("/resumes/%s/similar_vacancies", resumeID))
 	if err != nil {
@@ -229,4 +229,18 @@ func (c *HHClient) GetSimilarVacancies(accessToken, resumeID string, queryParams
 
 	return &similarVacancies, nil
 }
-	
+
+func (c *HHClient) GetFirstSimilarVacancy(resumeID string) (*models.Vacancy, error) {
+	firstSimilarVacancy, err := c.GetSimilarVacancies(resumeID, map[string]string{"per_page": "1"})
+	if err != nil {
+		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+	}
+	if len(firstSimilarVacancy.Items) == 0 {
+		return nil, errors.New("похожие вакансии не найдены")
+	}
+	if len(firstSimilarVacancy.Items) > 1 {
+		return nil, errors.New("больше одной вакансии")
+	}
+
+	return &firstSimilarVacancy.Items[0], nil
+}

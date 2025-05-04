@@ -24,41 +24,6 @@ func NewApplicationHandler(service *services.ApplicationService) *ApplicationHan
 	return &ApplicationHandler{service: service}
 }
 
-// HandleApplication обрабатывает полный цикл: резюме -> вакансия -> сопроводительное письмо -> отклик
-func (h *ApplicationHandler) HandleApplication(c *gin.Context) {
-	type Request struct {
-		ResumeID  string `json:"resume_id"`
-		VacancyID string `json:"vacancy_id"`
-	}
-
-	var req Request
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
-	accessToken, exists := c.Get("access_token")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
-		return
-	}
-
-	session := sessions.Default(c)
-	resumeID, ok := session.Get(constants.CurrentResumeID).(string)
-	if !ok || resumeID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "resume ID not found in session"})
-		return
-	}
-
-	_, err := h.service.GenerateCoverLetter(accessToken.(string), resumeID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "application processed successfully"})
-}
-
 // HHHandler handles requests related to hh.ru
 type HHHandler struct {
 	hhClient *clients.HHClient
@@ -103,65 +68,17 @@ func (h *HHHandler) CallbackHandler(c *gin.Context) {
 		return
 	}
 
+	h.hhClient.SetAccessToken(accessToken)
+
 	c.JSON(http.StatusOK, gin.H{"message": "authorized", "user_id": userID, "access_token": accessToken})
 }
-
-// HHHandler handles requests related
-// type HHHandler struct {
-// 	hhService *services.HHService
-// }
-
-// NewHHHandler creates a new HHHandler
-// func NewHHHandler(hhService *services.HHService) *HHHandler {
-// 	return &HHHandler{hhService: hhService}
-// }
-
-// AuthHandler rederects user to the authorization page
-// func (h *HHHandler) AuthHandler(c *gin.Context) {
-// 	c.Redirect(http.StatusFound, h.hhService.GetAuthURL())
-// }
-
-// CallbackHandler redirects user to the main page after authorization
-// func (h *HHHandler) CallbackHandler(c *gin.Context) {
-// 	code := c.Query("code")
-// 	if code == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "authorization code not found"})
-// 		return
-// 	}
-
-// 	accessToken, err := h.hhService.ExchangeCodeForToken(code)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	userID, err := h.hhService.GetUserID(accessToken)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	session := sessions.Default(c)
-// 	session.Set(constants.AccessToken, accessToken)
-// 	session.Set(constants.UserId, userID)
-// 	if err = session.Save(); err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"message": "authorized", "user_id": userID, "access_token": accessToken})
-// }
 
 // GetUserResumes retrieves user resumes
 func (h *HHHandler) GetUserResumes(c *gin.Context) {
 	session := sessions.Default(c)
-	accessToken, ok := session.Get(constants.AccessToken).(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
-		return
-	}
+	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
 
-	resumes, err := h.hhClient.GetResumes(accessToken)
+	resumes, err := h.hhClient.GetResumes()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resumes"})
 		return
@@ -189,11 +106,7 @@ func (h *HHHandler) GetUserResumes(c *gin.Context) {
 // GetCurrentResume retrieves the current resume from session
 func (h *HHHandler) GetCurrentResume(c *gin.Context) {
 	session := sessions.Default(c)
-	accessToken, ok := session.Get(constants.AccessToken).(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
-		return
-	}
+	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
 
 	resumeID, ok := session.Get(constants.CurrentResumeID).(string)
 	if !ok || resumeID == "" {
@@ -201,7 +114,7 @@ func (h *HHHandler) GetCurrentResume(c *gin.Context) {
 		return
 	}
 
-	resume, err := h.hhClient.GetResume(accessToken, resumeID)
+	resume, err := h.hhClient.GetResume(resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
 		return
@@ -219,13 +132,9 @@ func (h *HHHandler) GetVacancyByID(c *gin.Context) {
 	}
 
 	session := sessions.Default(c)
-	accessToken, ok := session.Get(constants.AccessToken).(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
-		return
-	}
+	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
 
-	vacancy, err := h.hhClient.GetVacancyByID(accessToken, vacancyID)
+	vacancy, err := h.hhClient.GetVacancyByID(vacancyID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -282,13 +191,9 @@ func (h *HHHandler) SetCurrnetResume(c *gin.Context) {
 // // GetUserApplications получает список вакансий, на которые пользователь откликнулся
 func (h *HHHandler) GetUserApplications(c *gin.Context) {
 	session := sessions.Default(c)
-	accessToken, ok := session.Get("access_token").(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Отсутствует access_token"})
-		return
-	}
+	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
 
-	applications, err := h.hhClient.GetUserApplications(accessToken)
+	applications, err := h.hhClient.GetUserApplications()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения откликов"})
 		return
@@ -324,48 +229,19 @@ func (h *HHHandler) GetUserApplications(c *gin.Context) {
 	// c.JSON(http.StatusOK, applicationsResponse)
 }
 
-// // GetUserFirstFoundedApplication получает первую вакансию из списка откликов
-func (h *HHHandler) GetUserFirstFoundedApplication(c *gin.Context) {
+// // GetFirstSimilarVacancy get a first similar vacancy
+func (h *HHHandler) GetFirstSimilarVacancy(c *gin.Context) {
 	session := sessions.Default(c)
-	accessToken, ok := session.Get("access_token").(string)
-	if accessToken == "" {
-		authHeader := c.GetHeader("Authorization")
-		const bearerPrefix = "Bearer "
+	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
 
-		if strings.HasPrefix(authHeader, bearerPrefix) {
-			accessToken = strings.TrimPrefix(authHeader, bearerPrefix)
-			ok = true
-		}
-	}
-
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Отсутствует access_token"})
+	resumeID, ok := session.Get(constants.CurrentResumeID).(string)
+	if !ok || resumeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "resume ID not found in session"})
 		return
 	}
 
-	// resp, err := h.hhService.GetClient().R().
-	// 	SetHeader("Authorization", "Bearer "+accessToken).
-	// 	Get(h.hhService.GetAPIURL() + "/negotiations" + "?" + "per_page=1")
-
-	// logger.Infof("resp: %v", resp)
-
-	// if err != nil || resp.StatusCode() != http.StatusOK {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения откликов"})
-	// 	return
-	// }
-
-	// var applicationsResponse models.APIApplicationsResponse
-	// if err := json.Unmarshal(resp.Body(), &applicationsResponse); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка обработки ответа HH API"})
-	// 	return
-	// }
-
-	// if len(applicationsResponse.Items) == 0 {
-	// 	c.JSON(http.StatusNotFound, gin.H{"error": "Откликов не найдено"})
-	// 	return
-	// }
-
-	applicationsResponse, err := h.hhClient.GetUserFirstFoundedApplication(accessToken)
+	applicationsResponse, err := h.hhClient.GetSimilarVacancies(resumeID,
+		map[string]string{"per_page": "1"})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения откликов"})
 		return
@@ -378,13 +254,10 @@ func (h *HHHandler) GetUserFirstFoundedApplication(c *gin.Context) {
 	c.JSON(http.StatusOK, applicationsResponse.Items[0])
 }
 
+// GetSimilarVacancies get all similar vacancies
 func (h *HHHandler) GetSimilarVacancies(c *gin.Context) {
 	session := sessions.Default(c)
-	accessToken, ok := session.Get(constants.AccessToken).(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
-		return
-	}
+	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
 
 	resumeID, ok := session.Get(constants.CurrentResumeID).(string)
 	if !ok || resumeID == "" {
@@ -392,10 +265,7 @@ func (h *HHHandler) GetSimilarVacancies(c *gin.Context) {
 		return
 	}
 
-	queryParams := map[string]string{
-		"per_page": "1",
-	}
-	vacancies, err := h.hhClient.GetSimilarVacancies(accessToken, resumeID, queryParams)
+	vacancies, err := h.hhClient.GetSimilarVacancies(resumeID, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
 		return
@@ -408,82 +278,75 @@ func (h *HHHandler) GetSimilarVacancies(c *gin.Context) {
 	c.JSON(http.StatusOK, vacancies.Items[0])
 }
 
-// func (h *HHHandler) GetVacancy(c *gin.Context) {
-// 	vacancyID := c.Query("id")
-// 	if vacancyID == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID is not set in context"})
-// 		return
-// 	}
+func (h *HHHandler) CreateCoverLetter(c *gin.Context) {
+	session := sessions.Default(c)
+	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
 
-// 	accessToken, ok := c.Get("access_token")
-// 	if !ok {
-// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token missing"})
-// 		return
-// 	}
+	currentResume := session.Get(constants.CurrentResumeID)
+	if currentResume == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
+		return
+	}
 
-// 	vacancy, err := h.hhService.GetVacancyByID(accessToken.(string), vacancyID)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
-// 		return
-// 	}
+	resumeID, ok := currentResume.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
+		return
+	}
 
-// 	c.JSON(http.StatusOK, vacancy)
-// }
+	firstSimilarVacancy, err := h.hhClient.GetFirstSimilarVacancy(resumeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		return
+	}
 
-// func (h *HHHandler) SendNewMessage(c *gin.Context) {
-// 	session := sessions.Default(c)
-// 	accessToken, ok := session.Get("access_token").(string)
-// 	if accessToken == "" {
-// 		authHeader := c.GetHeader("Authorization")
-// 		const bearerPrefix = "Bearer "
+	vacancy, err := h.hhClient.GetVacancyByID(firstSimilarVacancy.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		return
+	}
 
-// 		if strings.HasPrefix(authHeader, bearerPrefix) {
-// 			accessToken = strings.TrimPrefix(authHeader, bearerPrefix)
-// 			ok = true
-// 		}
-// 	}
+	vacancyPromt := vacancy.VacancyToLLMModel()
+	_ = vacancyPromt
 
-// 	if !ok {
-// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Отсутствует access_token"})
-// 		return
-// 	}
+}
 
-// 	// Получаем идентификатор отклика из параметров запроса
-// 	// nid := c.Param("nid")
-// 	nid := session.Get("nid")
-// 	if !ok {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Не указан идентификатор отклика"})
-// 		return
-// 	}
+func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
+	session := sessions.Default(c)
+	ap.service.VacancyProvider.SetAccessToken(session.Get(constants.AccessToken).(string))
 
-// 	if nid == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Не указан идентификатор отклика"})
-// 		return
-// 	}
+	currentResume := session.Get(constants.CurrentResumeID)
+	if currentResume == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
+		return
+	}
 
-// 	var request struct {
-// 		Message string `json:"message"` // Сообщение пользователя
-// 	}
+	resumeID, ok := currentResume.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
+		return
+	}
+	resume, err := ap.service.VacancyProvider.GetResume(resumeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
+		return
+	}
+	_ = resume
 
-// 	request.Message = "text"
+	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstSimilarVacancy(resumeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		return
+	}
 
-// 	// if err := c.ShouldBindJSON(&request); err != nil {
-// 	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
-// 	// 	return
-// 	// }
+	vacancy, err := ap.service.VacancyProvider.GetVacancyByID(firstSimilarVacancy.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		return
+	}
 
-// 	url := fmt.Sprintf(h.hhService.GetAPIURL()+constants.NegotiationsNidMessage, nid)
-// 	// Отправляем сообщение через hhService
-// 	resp, err := h.hhService.GetClient().R().
-// 		SetHeader("Authorization", "Bearer "+accessToken).
-// 		SetHeader("Content-Type", "application/x-www-form-urlencoded").
-// 		SetBody(map[string]string{"message": request.Message}).
-// 		Post(url)
+	vacancyPromt := vacancy.VacancyToLLMModel()
+	_ = vacancyPromt
 
-// 	if err != nil || resp.StatusCode() != http.StatusOK {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка отправки сообщения"})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"status": "Сообщение отправлено"})
-// }
+	ap.service.TextGenerator.SendRequest(vacancyPromt.ToPrompt())
+}

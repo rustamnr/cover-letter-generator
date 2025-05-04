@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -18,13 +17,12 @@ import (
 func registerRoutes(router *gin.Engine) {
 	// Инициализация клиентов
 	hhClient := clients.NewHHClient()
-	deepSeekClient := clients.NewDeepSeekService(
-		os.Getenv("DEEPSEEK_API_URL"),
-		os.Getenv("DEEPSEEK_API_KEY"),
-	)
+	deepSeekClient := clients.NewDeepSeekClient()
 
+	vacancyProvider := services.NewHHProvider(hhClient)
+	textGenerator := services.NewDeepSeekService(deepSeekClient)
 	// Инициализация сервисов
-	applicationService := services.NewApplicationService(hhClient, deepSeekClient)
+	applicationService := services.NewApplicationService(vacancyProvider, textGenerator)
 
 	// Инициализация хендлеров
 	hhHandler := handlers.NewHHHandler(hhClient)
@@ -53,10 +51,12 @@ func registerRoutes(router *gin.Engine) {
 		api.GET("/resumes", hhHandler.GetUserResumes)
 		api.POST("/resumes/select", hhHandler.SetCurrnetResume)
 		api.GET("/resumes/current", hhHandler.GetCurrentResume)
-		api.GET("/vacancies/similar", hhHandler.GetSimilarVacancies)
-		api.GET("/vacancies/:vacancy_id", hhHandler.GetVacancyByID)
 
+		api.GET("/vacancies/similar", hhHandler.GetSimilarVacancies)
+		api.GET("/vacancies/similar/first", hhHandler.GetFirstSimilarVacancy)
+		api.GET("/vacancies/:vacancy_id", hhHandler.GetVacancyByID)
 		api.GET("/vacancy", hhHandler.GetVacancyByID)
-		api.POST("/application", applicationHandler.HandleApplication) // Новый маршрут для обработки заявок
+
+		api.POST("/cover-letter", applicationHandler.GenerateCoverLetter)
 	}
 }

@@ -236,7 +236,7 @@ type DriverLicense struct {
 	ID string `json:"id"`
 }
 
-func (r *Resume) ConvertToText() string {
+func (r *Resume) ToPromt() string {
 	var sb strings.Builder
 	sb.WriteString(r.getBasicInfo())
 	sb.WriteString(r.getLocationInfo())

@@ -1,6 +1,9 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Vacancy struct {
 	ID                 string             `json:"id"`
@@ -92,6 +95,49 @@ func (v *Vacancy) VacancyToLLMModel() VacancyForLLM {
 		KeySkills:   keySkills,
 		CompanyName: v.Employer.Name,
 	}
+}
+
+// ToPrompt формирует строку (промт) для LLM из данных вакансии
+func (v VacancyForLLM) ToPrompt() string {
+	var builder strings.Builder
+
+	// Добавляем основную информацию о вакансии
+	builder.WriteString("Вакансия:\n")
+	builder.WriteString("Название: " + v.Name + "\n")
+	builder.WriteString("Компания: " + v.CompanyName + "\n")
+	builder.WriteString("Локация: " + v.Location + "\n")
+	builder.WriteString("Тип занятости: " + v.Employment + "\n")
+	builder.WriteString("Опыт работы: " + v.Experience.Name + "\n")
+	builder.WriteString("График работы: " + v.Schedule.Name + "\n")
+
+	// Добавляем описание вакансии
+	builder.WriteString("\nОписание:\n")
+	builder.WriteString(v.Description + "\n")
+
+	// Добавляем ключевые навыки
+	if len(v.KeySkills) > 0 {
+		builder.WriteString("\nКлючевые навыки:\n")
+		builder.WriteString(strings.Join(v.KeySkills, ", ") + "\n")
+	}
+
+	// Добавляем контакты, если они есть
+	if v.Contacts.Name != "" || v.Contacts.Email != "" || len(v.Contacts.Phones) > 0 {
+		builder.WriteString("\nКонтакты:\n")
+		if v.Contacts.Name != "" {
+			builder.WriteString("Имя: " + v.Contacts.Name + "\n")
+		}
+		if v.Contacts.Email != "" {
+			builder.WriteString("Email: " + v.Contacts.Email + "\n")
+		}
+		if len(v.Contacts.Phones) > 0 {
+			builder.WriteString("Телефоны:\n")
+			for _, phone := range v.Contacts.Phones {
+				builder.WriteString("- +" + phone.Country + " (" + phone.City + ") " + phone.Number + "\n")
+			}
+		}
+	}
+
+	return builder.String()
 }
 
 // SimilarVacanciesResponse представляет ответ от API /resumes/{resume_id}/similar_vacancies
