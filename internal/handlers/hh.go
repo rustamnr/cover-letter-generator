@@ -331,7 +331,6 @@ func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
 		return
 	}
-	_ = resume
 
 	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstSimilarVacancy(resumeID)
 	if err != nil {
@@ -346,7 +345,6 @@ func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
 	}
 
 	vacancyPromt := vacancy.VacancyToLLMModel()
-	_ = vacancyPromt
 
-	ap.service.TextGenerator.SendRequest(vacancyPromt.ToPrompt())
+	ap.service.TextGenerator.GenerateCoverLetter(resume.ToPromt(), vacancyPromt.ToPrompt())
 }

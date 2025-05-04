@@ -14,7 +14,7 @@ type JobAgregatorProvider interface {
 
 // LLMProvider определяет методы для работы с генераторами текста
 type LLMProvider interface {
-	SendRequest(promt string) (string, error)
+	GenerateCoverLetter(resume, vacancy string) (string, error)
 }
 
 // ApplicationService объединяет работу с вакансиями и генерацией текста
