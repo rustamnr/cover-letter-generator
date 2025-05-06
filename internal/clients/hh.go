@@ -244,3 +244,7 @@ func (c *HHClient) GetFirstSimilarVacancy(resumeID string) (*models.Vacancy, err
 
 	return &firstSimilarVacancy.Items[0], nil
 }
+
+func (c *HHClient) SendMessage() {
+
+}

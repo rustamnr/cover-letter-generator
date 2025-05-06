@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -31,6 +32,14 @@ type LLMRequest struct {
 	MaxTokens int    // between 1 and 8192, default=4096
 }
 
+type DeepSeekResponse struct {
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
+}
+
 // GenerateCoverLetter отправляет запрос на генерацию сопроводительного письма
 func (d *DeepSeekClient) SendPromt(req LLMRequest) (string, error) {
 	resp, err := d.client.R().
@@ -57,6 +66,7 @@ func (d *DeepSeekClient) SendPromt(req LLMRequest) (string, error) {
 			"presence_penalty":  0,
 			"response_format": map[string]string{
 				"type": "text",
+				// "type": "json_object",
 			},
 			"stop":           nil,
 			"stream":         false,
@@ -77,5 +87,16 @@ func (d *DeepSeekClient) SendPromt(req LLMRequest) (string, error) {
 		return "", errors.New("ошибка от DeepSeek API: " + resp.String())
 	}
 
-	return "", nil
+	// Разбираем JSON-ответ
+	var response DeepSeekResponse
+	if err := json.Unmarshal(resp.Body(), &response); err != nil {
+		return "", errors.New("ошибка разбора ответа DeepSeek API")
+	}
+
+	// Извлекаем текст сопроводительного письма
+	if len(response.Choices) == 0 || response.Choices[0].Message.Content == "" {
+		return "", errors.New("ответ от DeepSeek API не содержит текста")
+	}
+
+	return response.Choices[0].Message.Content, nil
 }
