@@ -6,15 +6,16 @@ import (
 
 // JobAgregatorProvider определяет методы для работы с агрегаторами вакансий
 type JobAgregatorProvider interface {
-	GetResume(resumeID string) (*models.Resume, error)
+	GetResumeByID(resumeID string) (*models.Resume, error)
 	GetVacancyByID(vacancyID string) (*models.Vacancy, error)
-	GetFirstSimilarVacancy(resumeID string) (*models.Vacancy, error)
+	GetShortVacancyByID(vacancyID string) (*models.VacancyShort, error)
+	GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error)
 	SetAccessToken(token string)
 }
 
 // LLMProvider определяет методы для работы с генераторами текста
 type LLMProvider interface {
-	GenerateCoverLetter(resume models.ResumeForLLM, vacancy models.VacancyForLLM) (string, error)
+	GenerateCoverLetter(resume *models.ResumeShort, vacancy *models.VacancyShort) (string, error)
 }
 
 // ApplicationService объединяет работу с вакансиями и генерацией текста

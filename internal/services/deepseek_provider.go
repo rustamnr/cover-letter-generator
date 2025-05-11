@@ -6,7 +6,7 @@ import (
 
 	"github.com/rustamnr/cover-letter-generator/internal/clients"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
-	"github.com/rustamnr/cover-letter-generator/pkg/templates"
+	"github.com/rustamnr/cover-letter-generator/pkg/promts"
 )
 
 // DeepSeekService отвечает за взаимодействие с API DeepSeek
@@ -22,9 +22,9 @@ func NewDeepSeekService(client *clients.DeepSeekClient) *DeepSeekService {
 }
 
 // SendDeepseekRequest отправляет запрос к DeepSeek API
-func (s *DeepSeekService) GenerateCoverLetter(resume models.ResumeForLLM, vacancy models.VacancyForLLM) (string, error) {
+func (s *DeepSeekService) GenerateCoverLetter(resume *models.ResumeShort, vacancy *models.VacancyShort) (string, error) {
 	request := clients.LLMRequest{
-		System: templates.BasePromt,
+		System: promts.DeepseekSystemContext,
 
 		Content: fmt.Sprintf(
 			"ВАКАНСИЯ:\n"+
@@ -42,7 +42,7 @@ func (s *DeepSeekService) GenerateCoverLetter(resume models.ResumeForLLM, vacanc
 			vacancy.CompanyName,
 			vacancy.Location,
 			vacancy.Description,
-			strings.Join(vacancy.KeySkills, ", "),
+			// strings.Join(vacancy.KeySkills, ", "),
 			resume.FirstName,
 			resume.LastName,
 			resume.Location,
@@ -53,12 +53,4 @@ func (s *DeepSeekService) GenerateCoverLetter(resume models.ResumeForLLM, vacanc
 	}
 
 	return s.client.SendPromt(request)
-}
-
-// limitString ограничивает длину строки до maxLength символов
-func limitString(input string, maxLength int) string {
-	if len(input) > maxLength {
-		return input[:maxLength] + "..."
-	}
-	return input
 }

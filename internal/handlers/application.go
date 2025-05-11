@@ -24,28 +24,28 @@ func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
 		return
 	}
-	resume, err := ap.service.VacancyProvider.GetResume(resumeID)
+	resume, err := ap.service.VacancyProvider.GetResumeByID(resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
 		return
 	}
 	resumePromt := resume.ResumeToLLMModel()
 
-	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstSimilarVacancy(resumeID)
+	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstShortSuitableVacancy(resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
 		return
 	}
 
-	vacancy, err := ap.service.VacancyProvider.GetVacancyByID(firstSimilarVacancy.ID)
+	vacancy, err := ap.service.VacancyProvider.GetShortVacancyByID(firstSimilarVacancy.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
 		return
 	}
 
-	vacancyPromt := vacancy.VacancyToLLMModel()
+	// vacancyPromt := vacancy.VacancyToShort()
 
-	coverLetter, err := ap.service.TextGenerator.GenerateCoverLetter(resumePromt, vacancyPromt)
+	coverLetter, err := ap.service.TextGenerator.GenerateCoverLetter(resumePromt, vacancy)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error generating cover letter"})
 		return

@@ -15,11 +15,11 @@ type SessionResume struct {
 	Title string `json:"title"`
 }
 
-type APIResumeResponse struct {
+type ResumesResponse struct {
 	Items []Resume `json:"items"`
 }
 
-type ResumeForLLM struct {
+type ResumeShort struct {
 	ID              string       `json:"id"`               // Идентификатор резюме
 	Title           string       `json:"title"`            // Название резюме
 	FirstName       string       `json:"first_name"`       // Имя
@@ -32,7 +32,7 @@ type ResumeForLLM struct {
 	Experience      []Experience `json:"experience"`       // Опыт работы
 }
 
-func (r *Resume) ResumeToLLMModel() ResumeForLLM {
+func (r *Resume) ResumeToLLMModel() *ResumeShort {
 	var contactEmail, contactPhone string
 
 	// Извлекаем email и телефон из контактов
@@ -66,7 +66,7 @@ func (r *Resume) ResumeToLLMModel() ResumeForLLM {
 		})
 	}
 
-	return ResumeForLLM{
+	return &ResumeShort{
 		ID:              r.ID,
 		Title:           r.Title,
 		FirstName:       r.FirstName,

@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
 	"github.com/rustamnr/cover-letter-generator/internal/logger"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
@@ -123,7 +126,7 @@ func (c *HHClient) GetResume(resumeID string) (*models.Resume, error) {
 }
 
 // GetResumes получает список резюме пользователя
-func (c *HHClient) GetResumes() (*models.APIResumeResponse, error) {
+func (c *HHClient) GetResumes() (*models.ResumesResponse, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+c.accessToken).
 		Get(c.apiURL + constants.ResumesMine)
@@ -136,7 +139,7 @@ func (c *HHClient) GetResumes() (*models.APIResumeResponse, error) {
 		return nil, fmt.Errorf("не удалось получить список резюме: %s", resp.String())
 	}
 
-	var resumes models.APIResumeResponse
+	var resumes models.ResumesResponse
 	if err := json.Unmarshal(resp.Body(), &resumes); err != nil {
 		return nil, fmt.Errorf("ошибка при разборе ответа: %w", err)
 	}
@@ -151,18 +154,43 @@ func (c *HHClient) GetVacancyByID(vacancyID string) (*models.Vacancy, error) {
 		Get(c.apiURL + fmt.Sprintf(constants.Vacancy, vacancyID))
 
 	if err != nil {
-		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+		return nil, fmt.Errorf("failed to get vacancy: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("не удалось получить вакансию: %s", resp.String())
+		return nil, fmt.Errorf("unsuccessful response from hh.ru: %s", resp.String())
 	}
 
 	var vacancy models.Vacancy
 	if err := json.Unmarshal(resp.Body(), &vacancy); err != nil {
-		return nil, fmt.Errorf("ошибка при разборе ответа: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
+	return &vacancy, nil
+}
+
+func (c *HHClient) GetShortVacancyByID(vacancyID string) (*models.VacancyShort, error) {
+	resp, err := c.client.R().
+		SetHeader("Authorization", "Bearer "+c.accessToken).
+		Get(c.apiURL + fmt.Sprintf(constants.Vacancy, vacancyID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vacancy: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("unsuccessful response from hh.ru: %s", resp.String())
+	}
+
+	var vacancy models.VacancyShort
+	if err := json.Unmarshal(resp.Body(), &vacancy); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	vacancy.Description = cleanHTML(vacancy.Description)
+	if vacancy.BrandedDescription != nil {
+		*vacancy.BrandedDescription = cleanHTML(*vacancy.BrandedDescription)
+	}
+
+	logger.Debugf("vacancy: %+v", vacancy)
 	return &vacancy, nil
 }
 
@@ -210,41 +238,78 @@ func (c *HHClient) GetUserFirstFoundedApplication(accessToken string) (*models.A
 	return &applicationsResponse, nil
 }
 
-func (c *HHClient) GetSimilarVacancies(resumeID string, queryParams map[string]string) (*models.SimilarVacanciesResponse, error) {
+func (c *HHClient) GetSuitableVacancies(
+	resumeID string, queryParams map[string]string) ([]models.Vacancy, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+c.accessToken).
 		SetQueryParams(queryParams). // Устанавливаем параметры запроса
 		Get(c.apiURL + fmt.Sprintf("/resumes/%s/similar_vacancies", resumeID))
 	if err != nil {
-		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
 	}
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("не удалось получить похожие вакансии: %s", resp.String())
+		return nil, fmt.Errorf("unsuccessful response from hh.ru: %s", resp.String())
 	}
 
-	var similarVacancies models.SimilarVacanciesResponse
+	var similarVacancies models.VacanciesResponse[models.Vacancy]
 	if err := json.Unmarshal(resp.Body(), &similarVacancies); err != nil {
-		return nil, fmt.Errorf("ошибка при разборе ответа: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	return &similarVacancies, nil
+	return similarVacancies.Items, nil
 }
 
-func (c *HHClient) GetFirstSimilarVacancy(resumeID string) (*models.Vacancy, error) {
-	firstSimilarVacancy, err := c.GetSimilarVacancies(resumeID, map[string]string{"per_page": "1"})
+func (c *HHClient) GetShortSuitableVacancies(
+	resumeID string, queryParams map[string]string) ([]models.VacancyShort, error) {
+	resp, err := c.client.R().
+		SetHeader("Authorization", "Bearer "+c.accessToken).
+		SetQueryParams(queryParams). // Устанавливаем параметры запроса
+		Get(c.apiURL + fmt.Sprintf("/resumes/%s/similar_vacancies", resumeID))
 	if err != nil {
-		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
 	}
-	if len(firstSimilarVacancy.Items) == 0 {
-		return nil, errors.New("похожие вакансии не найдены")
-	}
-	if len(firstSimilarVacancy.Items) > 1 {
-		return nil, errors.New("больше одной вакансии")
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("unsuccessful response from hh.ru: %s", resp.String())
 	}
 
-	return &firstSimilarVacancy.Items[0], nil
+	var similarVacancies models.VacanciesResponse[models.VacancyShort]
+	if err := json.Unmarshal(resp.Body(), &similarVacancies); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return similarVacancies.Items, nil
+}
+
+func (c *HHClient) GetFirstSuitableVacancy(resumeID string) (*models.Vacancy, error) {
+	firstSimilarVacancy, err := c.GetSuitableVacancies(resumeID, map[string]string{"per_page": "1"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
+	}
+	if len(firstSimilarVacancy) != 1 {
+		return nil, errors.New("vacancies count is not 1")
+	}
+
+	return &firstSimilarVacancy[0], nil
+}
+
+func (c *HHClient) GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error) {
+	firstSimilarVacancy, err := c.GetShortSuitableVacancies(resumeID, map[string]string{"per_page": "1"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
+	}
+	if len(firstSimilarVacancy) != 1 {
+		return nil, errors.New("vacancies count is not 1")
+	}
+
+	return &firstSimilarVacancy[0], nil
 }
 
 func (c *HHClient) SendMessage() {
 
+}
+
+func cleanHTML(input string) string {
+	policy := bluemonday.StripTagsPolicy()
+	cleaned := policy.Sanitize(input)
+	return html.UnescapeString(strings.TrimSpace(cleaned))
 }

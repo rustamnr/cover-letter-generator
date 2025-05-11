@@ -240,18 +240,17 @@ func (h *HHHandler) GetFirstSimilarVacancy(c *gin.Context) {
 		return
 	}
 
-	applicationsResponse, err := h.hhClient.GetSimilarVacancies(resumeID,
-		map[string]string{"per_page": "1"})
+	applicationsResponse, err := h.hhClient.GetSuitableVacancies(resumeID, map[string]string{"per_page": "1"})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения откликов"})
 		return
 	}
 
-	nid := applicationsResponse.Items[0].ID
+	nid := applicationsResponse[0].ID
 	session.Set("nid", nid)
 	session.Save()
 
-	c.JSON(http.StatusOK, applicationsResponse.Items[0])
+	c.JSON(http.StatusOK, applicationsResponse[0])
 }
 
 // GetSimilarVacancies get all similar vacancies
@@ -265,17 +264,17 @@ func (h *HHHandler) GetSimilarVacancies(c *gin.Context) {
 		return
 	}
 
-	vacancies, err := h.hhClient.GetSimilarVacancies(resumeID, nil)
+	vacancies, err := h.hhClient.GetSuitableVacancies(resumeID, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
 		return
 	}
-	if len(vacancies.Items) == 0 {
+	if len(vacancies) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "similar vacancies not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, vacancies.Items[0])
+	c.JSON(http.StatusOK, vacancies)
 }
 
 func (h *HHHandler) CreateCoverLetter(c *gin.Context) {
@@ -294,7 +293,7 @@ func (h *HHHandler) CreateCoverLetter(c *gin.Context) {
 		return
 	}
 
-	firstSimilarVacancy, err := h.hhClient.GetFirstSimilarVacancy(resumeID)
+	firstSimilarVacancy, err := h.hhClient.GetFirstSuitableVacancy(resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
 		return
@@ -306,8 +305,7 @@ func (h *HHHandler) CreateCoverLetter(c *gin.Context) {
 		return
 	}
 
-	vacancyPromt := vacancy.VacancyToLLMModel()
+	vacancyPromt := vacancy.VacancyToShort()
 	_ = vacancyPromt
 
 }
-

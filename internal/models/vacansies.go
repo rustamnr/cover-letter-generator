@@ -57,24 +57,25 @@ type Vacancy struct {
 	InsiderInterview       *InsiderInterview     `json:"insider_interview,omitempty"`
 }
 
-type VacancyForLLM struct {
-	ID          string            `json:"id"`          // Идентификатор вакансии
-	Name        string            `json:"name"`        // Название вакансии
-	Description string            `json:"description"` // Описание вакансии
-	Contacts    Contacts          `json:"contacts,omitempty"`
-	Location    string            `json:"location"`     // Локация (город)
-	Employment  string            `json:"employment"`   // Тип занятости
-	Experience  VacancyExperience `json:"experience"`   // Требуемый опыт работы
-	Schedule    Schedule          `json:"schedule"`     // График работы
-	KeySkills   []string          `json:"key_skills"`   // Ключевые навыки
-	CompanyName string            `json:"company_name"` // Название компании
+type VacancyShort struct {
+	ID                 string            `json:"id"`          // Идентификатор вакансии
+	Name               string            `json:"name"`        // Название вакансии
+	Description        string            `json:"description"` // Описание вакансии
+	BrandedDescription *string           `json:"branded_description,omitempty"`
+	Contacts           Contacts          `json:"contacts,omitempty"`
+	Location           string            `json:"location"`     // Локация (город)
+	Employment         Employment        `json:"employment"`   // Тип занятости
+	Experience         VacancyExperience `json:"experience"`   // Требуемый опыт работы
+	Schedule           Schedule          `json:"schedule"`     // График работы
+	KeySkills          []KeySkill        `json:"key_skills"`   // Ключевые навыки
+	CompanyName        string            `json:"company_name"` // Название компании
 }
 
-func (v *Vacancy) VacancyToLLMModel() VacancyForLLM {
+func (v *Vacancy) VacancyToShort() *VacancyShort {
 	// Преобразуем ключевые навыки
-	var keySkills []string
+	var keySkills []KeySkill
 	for _, skill := range v.KeySkills {
-		keySkills = append(keySkills, skill.Name)
+		keySkills = append(keySkills, skill)
 	}
 
 	// Проверяем наличие контактов
@@ -83,13 +84,13 @@ func (v *Vacancy) VacancyToLLMModel() VacancyForLLM {
 		contacts = *v.Contacts
 	}
 
-	return VacancyForLLM{
+	return &VacancyShort{
 		ID:          v.ID,
 		Name:        v.Name,
 		Description: v.Description, // Если нужно, можно добавить очистку HTML-тегов
 		Contacts:    contacts,
 		Location:    v.Area.Name,
-		Employment:  v.Employment.Name,
+		Employment:  v.Employment,
 		Experience:  v.VacancyExperience,
 		Schedule:    v.Schedule,
 		KeySkills:   keySkills,
@@ -97,8 +98,7 @@ func (v *Vacancy) VacancyToLLMModel() VacancyForLLM {
 	}
 }
 
-// ToPrompt формирует строку (промт) для LLM из данных вакансии
-func (v VacancyForLLM) ToPrompt() string {
+func (v VacancyShort) ToString() string {
 	var builder strings.Builder
 
 	// Добавляем основную информацию о вакансии
@@ -106,7 +106,7 @@ func (v VacancyForLLM) ToPrompt() string {
 	builder.WriteString("Название: " + v.Name + "\n")
 	builder.WriteString("Компания: " + v.CompanyName + "\n")
 	builder.WriteString("Локация: " + v.Location + "\n")
-	builder.WriteString("Тип занятости: " + v.Employment + "\n")
+	// builder.WriteString("Тип занятости: " + v.Employment + "\n")
 	builder.WriteString("Опыт работы: " + v.Experience.Name + "\n")
 	builder.WriteString("График работы: " + v.Schedule.Name + "\n")
 
@@ -117,7 +117,10 @@ func (v VacancyForLLM) ToPrompt() string {
 	// Добавляем ключевые навыки
 	if len(v.KeySkills) > 0 {
 		builder.WriteString("\nКлючевые навыки:\n")
-		builder.WriteString(strings.Join(v.KeySkills, ", ") + "\n")
+		// builder.WriteString(strings.Join(v.KeySkills, ", ") + "\n")
+		for _, skill := range v.KeySkills {
+			builder.WriteString("- " + skill.Name + "\n")
+		}
 	}
 
 	// Добавляем контакты, если они есть
@@ -140,13 +143,13 @@ func (v VacancyForLLM) ToPrompt() string {
 	return builder.String()
 }
 
-// SimilarVacanciesResponse представляет ответ от API /resumes/{resume_id}/similar_vacancies
-type SimilarVacanciesResponse struct {
-	Found   int       `json:"found"`    // Количество найденных вакансий
-	Items   []Vacancy `json:"items"`    // Список вакансий
-	Page    int       `json:"page"`     // Текущая страница
-	Pages   int       `json:"pages"`    // Общее количество страниц
-	PerPage int       `json:"per_page"` // Количество элементов на странице
+// VacanciesResponse представляет ответ от API /resumes/{resume_id}/similar_vacancies
+type VacanciesResponse[T any] struct {
+	Found   int `json:"found"`    // Количество найденных вакансий
+	Items   []T `json:"items"`    // Список вакансий
+	Page    int `json:"page"`     // Текущая страница
+	Pages   int `json:"pages"`    // Общее количество страниц
+	PerPage int `json:"per_page"` // Количество элементов на странице
 }
 
 type Employer struct {
