@@ -20,65 +20,101 @@ type ResumesResponse struct {
 }
 
 type ResumeShort struct {
-	ID              string       `json:"id"`               // Идентификатор резюме
-	Title           string       `json:"title"`            // Название резюме
-	FirstName       string       `json:"first_name"`       // Имя
-	LastName        string       `json:"last_name"`        // Фамилия
-	Location        string       `json:"location"`         // Локация (город)
-	ContactEmail    string       `json:"contact_email"`    // Email
-	ContactPhone    string       `json:"contact_phone"`    // Телефон
-	TotalExperience int          `json:"total_experience"` // Общий опыт работы (в месяцах)
-	Skills          []string     `json:"skills"`           // Ключевые навыки
-	Experience      []Experience `json:"experience"`       // Опыт работы
+	ID         string       `json:"id"`         // Идентификатор резюме
+	Title      string       `json:"title"`      // Название резюме
+	FirstName  string       `json:"first_name"` // Имя
+	LastName   string       `json:"last_name"`  // Фамилия
+	Location   string       `json:"location"`   // Локация (город)
+	Contact    []Contact    `json:"contact"`
+	Skills     string       `json:"skills"`     // Ключевые навыки
+	SkillsSet  []string     `json:"skill_set"`  // Ключевые навыки (набор)
+	Experience []Experience `json:"experience"` // Опыт работы
 }
 
-func (r *Resume) ResumeToLLMModel() *ResumeShort {
-	var contactEmail, contactPhone string
+func (rs *ResumeShort) ToString() string {
+	var sb strings.Builder
 
-	// Извлекаем email и телефон из контактов
-	for _, contact := range r.Contact {
+	sb.WriteString(fmt.Sprintf("Резюме: %s\n", rs.Title))
+	sb.WriteString(fmt.Sprintf("Имя: %s %s\n", rs.FirstName, rs.LastName))
+	sb.WriteString(fmt.Sprintf("Локация: %s\n", rs.Location))
+
+	for _, contact := range rs.Contact {
 		if contact.Type.ID == "email" {
-			contactEmail = contact.Value.(string)
-		} else if contact.Type.ID == "cell" {
+			sb.WriteString(fmt.Sprintf("Email: %s\n", contact.Value))
+		}
+		if contact.Type.ID == "cell" {
 			if phone, ok := contact.Value.(map[string]interface{}); ok {
 				if formatted, exists := phone["formatted"].(string); exists {
-					contactPhone = formatted
+					sb.WriteString(fmt.Sprintf("Телефон: %s\n", formatted))
 				}
 			}
 		}
 	}
 
-	// Преобразуем ключевые навыки
-	var skills []string
-	for _, skill := range r.KeySkills {
-		skills = append(skills, skill.Name)
+	sb.WriteString(fmt.Sprintf("Ключевые навыки: %s\n", rs.Skills))
+
+	sb.WriteString("Опыт работы:\n")
+	for _, exp := range rs.Experience {
+		endDate := "по настоящее время"
+		if exp.EndDate != nil && *exp.EndDate != "" {
+			endDate = *exp.EndDate
+		}
+		sb.WriteString(fmt.Sprintf("%s - %s (%s - %s)\n", exp.Position, exp.Company, exp.StartDate, endDate))
+		if exp.Description != "" {
+			sb.WriteString(fmt.Sprintf("Описание: %s\n", exp.Description))
+		}
 	}
 
-	// Преобразуем опыт работы
-	var experience []Experience
-	for _, exp := range r.Experience {
-		experience = append(experience, Experience{
-			Company:     exp.Company,
-			Position:    exp.Position,
-			StartDate:   exp.StartDate,
-			EndDate:     exp.EndDate,
-			Description: exp.Description,
-		})
-	}
-
-	return &ResumeShort{
-		ID:              r.ID,
-		Title:           r.Title,
-		FirstName:       r.FirstName,
-		LastName:        r.LastName,
-		Location:        r.Area.Name,
-		ContactEmail:    contactEmail,
-		ContactPhone:    contactPhone,
-		TotalExperience: r.TotalExperience.Months,
-		Skills:          skills,
-		Experience:      experience,
-	}
+	return sb.String()
 }
+
+// func (r *Resume) ToShort() *ResumeShort {
+// 	var contactEmail, contactPhone string
+
+// 	// Извлекаем email и телефон из контактов
+// 	for _, contact := range r.Contact {
+// 		if contact.Type.ID == "email" {
+// 			contactEmail = contact.Value.(string)
+// 		} else if contact.Type.ID == "cell" {
+// 			if phone, ok := contact.Value.(map[string]interface{}); ok {
+// 				if formatted, exists := phone["formatted"].(string); exists {
+// 					contactPhone = formatted
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	// Преобразуем ключевые навыки
+// 	var skills []string
+// 	for _, skill := range r.KeySkills {
+// 		skills = append(skills, skill.Name)
+// 	}
+
+// 	// Преобразуем опыт работы
+// 	var experience []Experience
+// 	for _, exp := range r.Experience {
+// 		experience = append(experience, Experience{
+// 			Company:     exp.Company,
+// 			Position:    exp.Position,
+// 			StartDate:   exp.StartDate,
+// 			EndDate:     exp.EndDate,
+// 			Description: exp.Description,
+// 		})
+// 	}
+
+// 	return &ResumeShort{
+// 		ID:              r.ID,
+// 		Title:           r.Title,
+// 		FirstName:       r.FirstName,
+// 		LastName:        r.LastName,
+// 		Location:        r.Area.Name,
+// 		ContactEmail:    contactEmail,
+// 		ContactPhone:    contactPhone,
+// 		TotalExperience: r.TotalExperience,
+// 		Skills:          skills,
+// 		Experience:      experience,
+// 	}
+// }
 
 type Resume struct {
 	ID                string             `json:"id"`
@@ -234,17 +270,6 @@ type TravelTime struct {
 
 type DriverLicense struct {
 	ID string `json:"id"`
-}
-
-func (r *Resume) ToPromt() string {
-	var sb strings.Builder
-	sb.WriteString(r.getBasicInfo())
-	sb.WriteString(r.getLocationInfo())
-	sb.WriteString(r.getContactInfo())
-	sb.WriteString(r.getWorkExperienceInfo())
-	sb.WriteString(r.getEducationInfo())
-	sb.WriteString(r.getSalaryInfo())
-	return sb.String()
 }
 
 func (r *Resume) getBasicInfo() string {

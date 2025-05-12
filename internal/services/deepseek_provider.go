@@ -2,9 +2,9 @@ package services
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/rustamnr/cover-letter-generator/internal/clients"
+	"github.com/rustamnr/cover-letter-generator/internal/logger"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
 	"github.com/rustamnr/cover-letter-generator/pkg/promts"
 )
@@ -23,32 +23,11 @@ func NewDeepSeekService(client *clients.DeepSeekClient) *DeepSeekService {
 
 // SendDeepseekRequest отправляет запрос к DeepSeek API
 func (s *DeepSeekService) GenerateCoverLetter(resume *models.ResumeShort, vacancy *models.VacancyShort) (string, error) {
+	content := fmt.Sprint(resume.ToString(), vacancy.ToString())
+	logger.Debugf("Deepseek request content: %s", content)
 	request := clients.LLMRequest{
-		System: promts.DeepseekSystemContext,
-
-		Content: fmt.Sprintf(
-			"ВАКАНСИЯ:\n"+
-				"- Название: %s\n"+
-				"- Компания: %s\n"+
-				"- Локация: %s\n"+
-				"- Описание: %s\n"+
-				"- Требуемые навыки: %s\n\n"+
-				"РЕЗЮМЕ КАНДИДАТА:\n"+
-				"- Имя: %s %s\n"+
-				"- Локация: %s\n"+
-				"- Опыт работы: %d лет\n"+
-				"- Навыки: %s\n"+
-				vacancy.Name,
-			vacancy.CompanyName,
-			vacancy.Location,
-			vacancy.Description,
-			// strings.Join(vacancy.KeySkills, ", "),
-			resume.FirstName,
-			resume.LastName,
-			resume.Location,
-			resume.TotalExperience/12,
-			strings.Join(resume.Skills, ", "),
-		),
+		System:    promts.DeepseekSystemContext,
+		Content:   content,
 		MaxTokens: 2048,
 	}
 

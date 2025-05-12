@@ -17,6 +17,10 @@ func (h *HHProvider) GetResumeByID(resumeID string) (*models.Resume, error) {
 	return h.client.GetResume(resumeID)
 }
 
+func (h *HHProvider) GetShortResumeByID(resumeID string) (*models.ResumeShort, error) {
+	return h.client.GetShortResume(resumeID)
+}
+
 func (h *HHProvider) GetVacancyByID(vacancyID string) (*models.Vacancy, error) {
 	return h.client.GetVacancyByID(vacancyID)
 }

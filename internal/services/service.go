@@ -7,6 +7,7 @@ import (
 // JobAgregatorProvider определяет методы для работы с агрегаторами вакансий
 type JobAgregatorProvider interface {
 	GetResumeByID(resumeID string) (*models.Resume, error)
+	GetShortResumeByID(resumeID string) (*models.ResumeShort, error)
 	GetVacancyByID(vacancyID string) (*models.Vacancy, error)
 	GetShortVacancyByID(vacancyID string) (*models.VacancyShort, error)
 	GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error)

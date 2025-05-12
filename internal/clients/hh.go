@@ -125,6 +125,28 @@ func (c *HHClient) GetResume(resumeID string) (*models.Resume, error) {
 	return &resume, nil
 }
 
+func (c *HHClient) GetShortResume(resumeID string) (*models.ResumeShort, error) {
+	resp, err := c.client.R().
+		SetHeader("Authorization", "Bearer "+c.accessToken).
+		Get(c.apiURL + fmt.Sprintf(constants.Resume, resumeID))
+
+	if err != nil {
+		return nil, fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("не удалось получить резюме: %s", resp.String())
+	}
+
+	var resume models.ResumeShort
+	if err := json.Unmarshal(resp.Body(), &resume); err != nil {
+		return nil, fmt.Errorf("ошибка при разборе ответа: %w", err)
+	}
+
+	return &resume, nil
+}
+
+
 // GetResumes получает список резюме пользователя
 func (c *HHClient) GetResumes() (*models.ResumesResponse, error) {
 	resp, err := c.client.R().

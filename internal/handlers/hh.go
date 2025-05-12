@@ -305,7 +305,7 @@ func (h *HHHandler) CreateCoverLetter(c *gin.Context) {
 		return
 	}
 
-	vacancyPromt := vacancy.VacancyToShort()
+	vacancyPromt := vacancy.ToShort()
 	_ = vacancyPromt
 
 }

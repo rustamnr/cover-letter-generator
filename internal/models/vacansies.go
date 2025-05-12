@@ -71,7 +71,7 @@ type VacancyShort struct {
 	CompanyName        string            `json:"company_name"` // Название компании
 }
 
-func (v *Vacancy) VacancyToShort() *VacancyShort {
+func (v *Vacancy) ToShort() *VacancyShort {
 	// Преобразуем ключевые навыки
 	var keySkills []KeySkill
 	for _, skill := range v.KeySkills {
