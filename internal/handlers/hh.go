@@ -2,16 +2,23 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rustamnr/cover-letter-generator/internal/clients"
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
 	"github.com/rustamnr/cover-letter-generator/internal/services"
+	"github.com/rustamnr/cover-letter-generator/internal/storage"
+	"github.com/rustamnr/cover-letter-generator/internal/telegram"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 // ApplicationHandler обрабатывает запросы, связанные с заявками
@@ -36,7 +43,17 @@ func NewHHHandler(hhClient *clients.HHClient) *HHHandler {
 
 // AuthHandler redirects user to the authorization page
 func (h *HHHandler) AuthHandler(c *gin.Context) {
-	authURL := fmt.Sprintf("https://hh.ru/oauth/authorize?response_type=code&client_id=%s", h.hhClient.ClientID)
+	telegramID := c.Query("telegram_id") // Telegram ID передается как параметр
+	if telegramID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "telegram_id is required"})
+		return
+	}
+
+	authURL := fmt.Sprintf(
+		"https://hh.ru/oauth/authorize?response_type=code&client_id=%s&state=%s",
+		h.hhClient.ClientID,
+		telegramID, // Передаем Telegram ID в state
+	)
 	c.Redirect(http.StatusFound, authURL)
 }
 
@@ -45,6 +62,12 @@ func (h *HHHandler) CallbackHandler(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "authorization code not found"})
+		return
+	}
+
+	telegramID := c.Query("state") // Извлекаем Telegram ID из state
+	if telegramID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "telegram_id not found"})
 		return
 	}
 
@@ -70,13 +93,51 @@ func (h *HHHandler) CallbackHandler(c *gin.Context) {
 
 	h.hhClient.SetAccessToken(accessToken)
 
+	telegramIDInt, err := strconv.ParseInt(telegramID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid telegram_id"})
+		return
+	}
+	_ = storage.SaveToken(telegramIDInt, accessToken, time.Hour*24)
+
+	// Уведомляем пользователя через Telegram
+	go func() {
+		bot, err := telegram.NewBot()
+		if err != nil {
+			log.Printf("Ошибка создания Telegram-бота: %v", err)
+			return
+		}
+
+		telegramIDInt, err := strconv.ParseInt(telegramID, 10, 64)
+		if err != nil {
+			log.Printf("Ошибка преобразования Telegram ID: %v", err)
+			return
+		}
+
+		msg := tgbotapi.NewMessage(telegramIDInt, "Вы успешно авторизовались в hh.ru!")
+		bot.API.Send(msg)
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"message": "authorized", "user_id": userID, "access_token": accessToken})
 }
 
 // GetUserResumes retrieves user resumes
 func (h *HHHandler) GetUserResumes(c *gin.Context) {
 	session := sessions.Default(c)
-	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
+	// h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
+
+	telegramIDStr := c.Query("telegram_id")
+	telegramID, err := strconv.ParseInt(telegramIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid telegram_id"})
+		return
+	}
+	accessToken, err := storage.GetToken(telegramID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "access token not found"})
+		return
+	}
+	h.hhClient.SetAccessToken(accessToken)
 
 	resumes, err := h.hhClient.GetResumes()
 	if err != nil {
