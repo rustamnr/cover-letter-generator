@@ -1,3 +1,5 @@
+NGROK_AUTH_TOKEN=2x0bvTOdJS1ZyWGfTy3PuJYc2p2_6KRasKnNBARGFruZX41Np
+
 # ===== Start application =====
 .PHONY: run
 
@@ -10,15 +12,20 @@ run:
 
 .PHONY: ngrok ngrok-url update-env stop-ngrok
 
-ngrok: stop-ngrok ngrok-url update-env
+ngrok: ngrok-auth stop-ngrok ngrok-url update-env
+
+ngrok-auth:
+	@echo "Authenticating ngrok..."
+	@ngrok config add-authtoken $(NGROK_AUTH_TOKEN)
 
 ngrok-url:
-	@echo "Start ngrok..."
-	@ngrok http 8080 > /dev/null & \
-	sleep 3 && \
-	curl -s http://localhost:4040/api/tunnels | \
-	grep -o '"public_url":"https:[^"]*' | \
-	sed 's/"public_url":"//' > .ngrok_url
+	@NGROK_URL=$$(cat .ngrok_url); \
+	if grep -q '^API_BASE_URL=' .env; then \
+		sed -i "s|^API_BASE_URL=.*|API_BASE_URL=$$NGROK_URL|" .env; \
+	else \
+		echo "API_BASE_URL=$$NGROK_URL" >> .env; \
+	fi; \
+	echo "API_BASE_URL updated: $$NGROK_URL"
 
 update-env:
 	@NGROK_URL=$$(cat .ngrok_url); \
