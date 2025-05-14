@@ -23,8 +23,8 @@ func NewServer() *Server {
 
 // Run запускает сервер
 func (s *Server) Run(port string) {
-	log.Printf("Сервер запущен на :%s", port)
+	log.Printf("Run server on: %s", port)
 	if err := s.Router.Run(":" + port); err != nil {
-		log.Fatal("Ошибка запуска сервера:", err)
+		log.Fatal("Error starting server:", err)
 	}
 }
