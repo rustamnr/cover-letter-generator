@@ -25,7 +25,6 @@ type HHClient struct {
 	accessToken  string
 }
 
-// NewHHClient создает новый экземпляр HHClient
 func NewHHClient() *HHClient {
 	return &HHClient{
 		apiURL:       os.Getenv("HH_API_URL"),
@@ -35,6 +34,8 @@ func NewHHClient() *HHClient {
 	}
 }
 
+// ===== Authentication and Token Management =====
+
 func (c *HHClient) SetAccessToken(token string) {
 	c.accessToken = token
 }
@@ -43,7 +44,6 @@ func (c *HHClient) GetAccessToken() string {
 	return c.accessToken
 }
 
-// ExchangeCodeForToken обменивает `code` на `access_token`
 func (c *HHClient) ExchangeCodeForToken(code string) (string, error) {
 	resp, err := c.client.R().
 		SetFormData(map[string]string{
@@ -76,7 +76,8 @@ func (c *HHClient) ExchangeCodeForToken(code string) (string, error) {
 	return accessToken, nil
 }
 
-// GetUserID получает ID текущего пользователя
+// ====== User and Resume Management =====
+
 func (c *HHClient) GetUserID(accessToken string) (string, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+accessToken).
@@ -103,7 +104,6 @@ func (c *HHClient) GetUserID(accessToken string) (string, error) {
 	return userID, nil
 }
 
-// GetResume получает резюме по ID
 func (c *HHClient) GetResume(resumeID string) (*models.Resume, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+c.accessToken).
@@ -146,8 +146,6 @@ func (c *HHClient) GetShortResume(resumeID string) (*models.ResumeShort, error) 
 	return &resume, nil
 }
 
-
-// GetResumes получает список резюме пользователя
 func (c *HHClient) GetResumes() (*models.ResumesResponse, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+c.accessToken).
@@ -169,7 +167,6 @@ func (c *HHClient) GetResumes() (*models.ResumesResponse, error) {
 	return &resumes, nil
 }
 
-// GetVacancyByID получает вакансию по ID
 func (c *HHClient) GetVacancyByID(vacancyID string) (*models.Vacancy, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+c.accessToken).
@@ -330,6 +327,7 @@ func (c *HHClient) SendMessage() {
 
 }
 
+// cleanHTML removes HTML tags and unescapes HTML entities from the input string.
 func cleanHTML(input string) string {
 	policy := bluemonday.StripTagsPolicy()
 	cleaned := policy.Sanitize(input)
