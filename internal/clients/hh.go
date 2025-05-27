@@ -323,6 +323,26 @@ func (c *HHClient) GetFirstShortSuitableVacancy(resumeID string) (*models.Vacanc
 	return &firstSimilarVacancy[0], nil
 }
 
+func (c *HHClient) PostNegotiationByVacancyID(resumeID, vacancyID, message string) error {
+	resp, err := c.client.R().
+		SetHeader("Authorization", "Bearer "+c.accessToken).
+		SetMultipartFormData(map[string]string{
+			"resume_id":  resumeID,
+			"vacancy_id": vacancyID,
+			"message":    message,
+		}).
+		Post(c.apiURL + "/negotiations")
+	if err != nil {
+		return fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
+	}
+	if resp.StatusCode() != http.StatusCreated {
+		logger.Errorf("не удалось создать заявку: %s", resp.String())
+		return fmt.Errorf("не удалось создать заявку: %s", resp.String())
+	}
+
+	return nil
+}
+
 func (c *HHClient) SendMessage() {
 
 }

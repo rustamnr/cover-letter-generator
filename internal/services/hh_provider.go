@@ -33,6 +33,10 @@ func (h *HHProvider) GetFirstShortSuitableVacancy(resumeID string) (*models.Vaca
 	return h.client.GetFirstShortSuitableVacancy(resumeID)
 }
 
+func (h *HHProvider) ApplyToVacancy(resumeID, vacancyID, coverLetter string) error {
+	return h.client.PostNegotiationByVacancyID(resumeID, vacancyID, coverLetter)
+}
+
 func (h *HHProvider) SetAccessToken(token string) {
 	h.client.SetAccessToken(token)
 }

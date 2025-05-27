@@ -11,6 +11,7 @@ type JobAgregatorProvider interface {
 	GetVacancyByID(vacancyID string) (*models.Vacancy, error)
 	GetShortVacancyByID(vacancyID string) (*models.VacancyShort, error)
 	GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error)
+	ApplyToVacancy(resumeID, vacancyID, coverLetter string) error
 	SetAccessToken(token string)
 }
 
