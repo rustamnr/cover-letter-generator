@@ -57,7 +57,7 @@ func registerRoutes(router *gin.Engine) {
 		api.GET("/vacancies/:vacancy_id", hhHandler.GetVacancyByID)
 		api.GET("/vacancy", hhHandler.GetVacancyByID)
 
-		api.POST("/apply/:vacancy_id", hhHandler.ApplyToVacancy)
+		api.POST("/apply/:vacancy_id", applicationHandler.ApplyToVacancy)
 
 		api.POST("/cover-letter", applicationHandler.GenerateCoverLetter)
 	}

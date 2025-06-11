@@ -309,32 +309,3 @@ func (h *HHHandler) CreateCoverLetter(c *gin.Context) {
 	_ = vacancyPromt
 
 }
-
-func (h *HHHandler) ApplyToVacancy(c *gin.Context) {
-	session := sessions.Default(c)
-	h.hhClient.SetAccessToken(session.Get(constants.AccessToken).(string))
-
-	vacancyID := c.Param("vacancy_id")
-	if vacancyID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "vacancy ID is required"})
-		return
-	}
-	currentResume := session.Get(constants.CurrentResumeID)
-	if currentResume == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
-		return
-	}
-	resumeID, ok := currentResume.(string)
-	if !ok || resumeID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "resume ID not found in session"})
-		return
-	}
-
-	err := h.hhClient.PostNegotiationByVacancyID(resumeID, vacancyID, "")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error applying to vacancy"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "successfully applied to vacancy", "vacancy_id": vacancyID, "resume_id": resumeID})
-}

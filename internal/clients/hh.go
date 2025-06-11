@@ -335,7 +335,7 @@ func (c *HHClient) PostNegotiationByVacancyID(resumeID, vacancyID, message strin
 	if err != nil {
 		return fmt.Errorf("ошибка запроса к API hh.ru: %w", err)
 	}
-	if resp.StatusCode() != http.StatusCreated {
+	if resp.StatusCode() != http.StatusCreated { // https://api.hh.ru/negotiations has 201 response code on success
 		logger.Errorf("не удалось создать заявку: %s", resp.String())
 		return fmt.Errorf("не удалось создать заявку: %s", resp.String())
 	}

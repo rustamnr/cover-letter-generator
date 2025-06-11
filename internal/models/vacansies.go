@@ -58,17 +58,18 @@ type Vacancy struct {
 }
 
 type VacancyShort struct {
-	ID                 string            `json:"id"`          // Идентификатор вакансии
-	Name               string            `json:"name"`        // Название вакансии
-	Description        string            `json:"description"` // Описание вакансии
-	BrandedDescription *string           `json:"branded_description,omitempty"`
-	Contacts           Contacts          `json:"contacts,omitempty"`
-	Location           string            `json:"location"`     // Локация (город)
-	Employment         Employment        `json:"employment"`   // Тип занятости
-	Experience         VacancyExperience `json:"experience"`   // Требуемый опыт работы
-	Schedule           Schedule          `json:"schedule"`     // График работы
-	KeySkills          []KeySkill        `json:"key_skills"`   // Ключевые навыки
-	CompanyName        string            `json:"company_name"` // Название компании
+	ID                     string            `json:"id"`          // Идентификатор вакансии
+	Name                   string            `json:"name"`        // Название вакансии
+	Description            string            `json:"description"` // Описание вакансии
+	BrandedDescription     *string           `json:"branded_description,omitempty"`
+	Contacts               Contacts          `json:"contacts,omitempty"`
+	Location               string            `json:"location"`     // Локация (город)
+	Employment             Employment        `json:"employment"`   // Тип занятости
+	Experience             VacancyExperience `json:"experience"`   // Требуемый опыт работы
+	Schedule               Schedule          `json:"schedule"`     // График работы
+	KeySkills              []KeySkill        `json:"key_skills"`   // Ключевые навыки
+	CompanyName            string            `json:"company_name"` // Название компании
+	ResponseLetterRequired bool              `json:"response_letter_required"`
 }
 
 func (v *Vacancy) ToShort() *VacancyShort {
