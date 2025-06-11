@@ -57,7 +57,7 @@ func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
 func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 	var (
 		err         error
-		coverLetter any
+		coverLetter string
 		vacancy     *models.VacancyShort
 		session     = sessions.Default(c)
 	)
@@ -80,6 +80,10 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "vacancy not found"})
 		return
 	}
+	if vacancy.Test.Required {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vacancy requires a test, cannot apply directly"})
+		return
+	}
 
 	// Get current user resume from session
 	currentResume := session.Get(constants.CurrentResumeID)
@@ -95,9 +99,10 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 
 	// Generate cover letter if required
 	if vacancy.ResponseLetterRequired {
+		// Get resume by ID from job portal
 		resume, err := ap.service.VacancyProvider.GetShortResumeByID(resumeID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error getting resume": err.Error()})
 			return
 		}
 		if resume == nil {
@@ -105,16 +110,17 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 			return
 		}
 
+		// Generate cover letter using LLM service
 		coverLetter, err = ap.service.TextGenerator.GenerateCoverLetter(resume, vacancy)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error generating cover letter"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error generating cover letter": err.Error()})
 			return
 		}
 	}
 
-	err = ap.service.VacancyProvider.ApplyToVacancy(resumeID, vacancyID, coverLetter.(string))
+	err = ap.service.VacancyProvider.ApplyToVacancy(resumeID, vacancyID, coverLetter)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error applying to vacancy": err.Error()})
 		return
 	}
 

@@ -70,6 +70,7 @@ type VacancyShort struct {
 	KeySkills              []KeySkill        `json:"key_skills"`   // Ключевые навыки
 	CompanyName            string            `json:"company_name"` // Название компании
 	ResponseLetterRequired bool              `json:"response_letter_required"`
+	Test                   *Test             `json:"test,omitempty"`
 }
 
 func (v *Vacancy) ToShort() *VacancyShort {
