@@ -13,6 +13,10 @@ func NewHHProvider(client *clients.HHClient) *HHProvider {
 	return &HHProvider{client: client}
 }
 
+func (h *HHProvider) ApplyToVacancy(resumeID, vacancyID, coverLetter string) error {
+	return h.client.PostNegotiationByVacancyID(resumeID, vacancyID, coverLetter)
+}
+
 func (h *HHProvider) GetResumeByID(resumeID string) (*models.Resume, error) {
 	return h.client.GetResume(resumeID)
 }
@@ -33,8 +37,8 @@ func (h *HHProvider) GetFirstShortSuitableVacancy(resumeID string) (*models.Vaca
 	return h.client.GetFirstShortSuitableVacancy(resumeID)
 }
 
-func (h *HHProvider) ApplyToVacancy(resumeID, vacancyID, coverLetter string) error {
-	return h.client.PostNegotiationByVacancyID(resumeID, vacancyID, coverLetter)
+func (h *HHProvider) GetShortSimilarVacancies(resumeID string) ([]models.VacancyShort, error) {
+	return h.client.GetShortSimilarVacancies(resumeID, nil)
 }
 
 func (h *HHProvider) SetAccessToken(token string) {

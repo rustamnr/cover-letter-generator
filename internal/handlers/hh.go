@@ -240,7 +240,7 @@ func (h *HHHandler) GetFirstSimilarVacancy(c *gin.Context) {
 		return
 	}
 
-	applicationsResponse, err := h.hhClient.GetSuitableVacancies(resumeID, map[string]string{"per_page": "1"})
+	applicationsResponse, err := h.hhClient.GetSimilarVacancies(resumeID, map[string]string{"per_page": "1"})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения откликов"})
 		return
@@ -264,9 +264,16 @@ func (h *HHHandler) GetSimilarVacancies(c *gin.Context) {
 		return
 	}
 
-	vacancies, err := h.hhClient.GetSuitableVacancies(resumeID, nil)
+	perPage := c.Query("per_page") // Default 10, max 100
+	if perPage == "" {
+		perPage = "100"
+	}
+
+	vacancies, err := h.hhClient.GetSimilarVacancies(resumeID,
+		map[string]string{"per_page": perPage},
+	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error getting similar vacancies": err.Error()})
 		return
 	}
 	if len(vacancies) == 0 {

@@ -3,13 +3,13 @@ package server
 import (
 	"net/http"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/rustamnr/cover-letter-generator/internal/clients"
 	"github.com/rustamnr/cover-letter-generator/internal/handlers"
 	"github.com/rustamnr/cover-letter-generator/internal/middleware"
 	"github.com/rustamnr/cover-letter-generator/internal/services"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +22,8 @@ func registerRoutes(router *gin.Engine) {
 	vacancyProvider := services.NewHHProvider(hhClient)
 	textGenerator := services.NewDeepSeekService(deepSeekClient)
 	// Инициализация сервисов
-	applicationService := services.NewApplicationService(vacancyProvider, textGenerator)
+	vacancyQueue := services.NewSliceVacancyQueue()
+	applicationService := services.NewApplicationService(vacancyProvider, vacancyQueue, textGenerator)
 
 	// Инициализация хендлеров
 	hhHandler := handlers.NewHHHandler(hhClient)

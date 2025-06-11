@@ -130,3 +130,40 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 		"resume_id":  resumeID,
 	})
 }
+
+func (ap *ApplicationHandler) ApplyToVacansies(c *gin.Context) {
+	var (
+		// err     error
+		session = sessions.Default(c)
+	)
+
+	ap.service.VacancyProvider.SetAccessToken(session.Get(constants.AccessToken).(string))
+
+	// Get current user resume from session
+	currentResume := session.Get(constants.CurrentResumeID)
+	if currentResume == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
+		return
+	}
+	resumeID, ok := currentResume.(string)
+	if !ok || resumeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "resume ID not found in session"})
+		return
+	}
+
+	vacancies, err := ap.service.VacancyProvider.GetShortSimilarVacancies(resumeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error getting similar vacancies": err.Error()})
+		return
+	}
+
+	for _, vacancy := range vacancies {
+		err = ap.service.VacancyProvider.ApplyToVacancy(resumeID, vacancy.ID, "")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error applying to vacancy": err.Error()})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "successfully applied to all vacancies"})
+}

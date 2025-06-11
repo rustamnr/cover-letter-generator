@@ -234,7 +234,7 @@ func (c *HHClient) GetUserApplications() ([]models.ApplicationItem, error) {
 	return applications, nil
 }
 
-func (c *HHClient) GetUserFirstFoundedApplication(accessToken string) (*models.APIApplicationsResponse, error) {
+func (c *HHClient) GetFirstFoundedApplication(accessToken string) (*models.APIApplicationsResponse, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+accessToken).
 		Get(c.apiURL + "/negotiations" + "?" + "per_page=1")
@@ -257,11 +257,11 @@ func (c *HHClient) GetUserFirstFoundedApplication(accessToken string) (*models.A
 	return &applicationsResponse, nil
 }
 
-func (c *HHClient) GetSuitableVacancies(
+func (c *HHClient) GetSimilarVacancies(
 	resumeID string, queryParams map[string]string) ([]models.Vacancy, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+c.accessToken).
-		SetQueryParams(queryParams). // Устанавливаем параметры запроса
+		SetQueryParams(queryParams).
 		Get(c.apiURL + fmt.Sprintf("/resumes/%s/similar_vacancies", resumeID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
@@ -278,11 +278,12 @@ func (c *HHClient) GetSuitableVacancies(
 	return similarVacancies.Items, nil
 }
 
-func (c *HHClient) GetShortSuitableVacancies(
+// GetShortSimilarVacancies retrieves a list of similar vacancies for a given resume ID
+func (c *HHClient) GetShortSimilarVacancies(
 	resumeID string, queryParams map[string]string) ([]models.VacancyShort, error) {
 	resp, err := c.client.R().
 		SetHeader("Authorization", "Bearer "+c.accessToken).
-		SetQueryParams(queryParams). // Устанавливаем параметры запроса
+		SetQueryParams(queryParams).
 		Get(c.apiURL + fmt.Sprintf("/resumes/%s/similar_vacancies", resumeID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
@@ -300,7 +301,7 @@ func (c *HHClient) GetShortSuitableVacancies(
 }
 
 func (c *HHClient) GetFirstSuitableVacancy(resumeID string) (*models.Vacancy, error) {
-	firstSimilarVacancy, err := c.GetSuitableVacancies(resumeID, map[string]string{"per_page": "1"})
+	firstSimilarVacancy, err := c.GetSimilarVacancies(resumeID, map[string]string{"per_page": "1"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
 	}
@@ -312,7 +313,7 @@ func (c *HHClient) GetFirstSuitableVacancy(resumeID string) (*models.Vacancy, er
 }
 
 func (c *HHClient) GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error) {
-	firstSimilarVacancy, err := c.GetShortSuitableVacancies(resumeID, map[string]string{"per_page": "1"})
+	firstSimilarVacancy, err := c.GetShortSimilarVacancies(resumeID, map[string]string{"per_page": "1"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get similar vacancies: %w", err)
 	}

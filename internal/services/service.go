@@ -6,12 +6,13 @@ import (
 
 // JobAgregatorProvider определяет методы для работы с агрегаторами вакансий
 type JobAgregatorProvider interface {
+	ApplyToVacancy(resumeID, vacancyID, coverLetter string) error
 	GetResumeByID(resumeID string) (*models.Resume, error)
 	GetShortResumeByID(resumeID string) (*models.ResumeShort, error)
 	GetVacancyByID(vacancyID string) (*models.Vacancy, error)
 	GetShortVacancyByID(vacancyID string) (*models.VacancyShort, error)
 	GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error)
-	ApplyToVacancy(resumeID, vacancyID, coverLetter string) error
+	GetShortSimilarVacancies(resumeID string) ([]models.VacancyShort, error)
 	SetAccessToken(token string)
 }
 
@@ -23,13 +24,15 @@ type LLMProvider interface {
 // ApplicationService объединяет работу с вакансиями и генерацией текста
 type ApplicationService struct {
 	VacancyProvider JobAgregatorProvider
+	VacancyQueue    VacancyQueue
 	TextGenerator   LLMProvider
 }
 
 // NewApplicationService создает новый ApplicationService
-func NewApplicationService(vacancyProvider JobAgregatorProvider, textGenerator LLMProvider) *ApplicationService {
+func NewApplicationService(vacancyProvider JobAgregatorProvider, vacancyQueue VacancyQueue, textGenerator LLMProvider) *ApplicationService {
 	return &ApplicationService{
 		VacancyProvider: vacancyProvider,
+		VacancyQueue:    vacancyQueue,
 		TextGenerator:   textGenerator,
 	}
 }
