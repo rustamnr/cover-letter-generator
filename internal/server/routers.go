@@ -49,15 +49,13 @@ func registerRoutes(router *gin.Engine) {
 	api.Use(middleware.AuthMiddleware())
 	{
 		api.GET("/resumes", hhHandler.GetUserResumes)
-		api.POST("/resumes/select", hhHandler.SetCurrnetResume)
+		api.POST("/resumes/current", hhHandler.SetCurrnetResume)
 		api.GET("/resumes/current", hhHandler.GetCurrentResume)
 
 		api.GET("/vacancies/similar", hhHandler.GetSimilarVacancies)
 		api.GET("/vacancies/similar/first", hhHandler.GetFirstSimilarVacancy)
 		api.GET("/vacancies/:vacancy_id", hhHandler.GetVacancyByID)
-		api.GET("/vacancy", hhHandler.GetVacancyByID)
-
-		api.POST("/apply/:vacancy_id", applicationHandler.ApplyToVacancy)
+		api.POST("/vacancies/apply/:vacancy_id", applicationHandler.ApplyToVacancy)
 
 		api.POST("/cover-letter", applicationHandler.GenerateCoverLetter)
 	}
