@@ -1,4 +1,4 @@
-package handlers
+package handlers_deepseek
 
 import (
 	"github.com/rustamnr/cover-letter-generator/internal/services"

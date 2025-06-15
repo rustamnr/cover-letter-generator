@@ -3,7 +3,7 @@ package services
 import (
 	"fmt"
 
-	"github.com/rustamnr/cover-letter-generator/internal/clients"
+	clients "github.com/rustamnr/cover-letter-generator/internal/clients/deepseek"
 	"github.com/rustamnr/cover-letter-generator/internal/logger"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
 	"github.com/rustamnr/cover-letter-generator/pkg/promts"
@@ -22,7 +22,7 @@ func NewDeepSeekService(client *clients.DeepSeekClient) *DeepSeekService {
 }
 
 // SendDeepseekRequest отправляет запрос к DeepSeek API
-func (s *DeepSeekService) GenerateCoverLetter(resume *models.ResumeShort, vacancy *models.VacancyShort) (string, error) {
+func (s *DeepSeekService) GenerateCoverLetter(resume *models.Resume, vacancy *models.Vacancy) (string, error) {
 	content := fmt.Sprint(resume.ToString(), vacancy.ToString())
 	logger.Debugf("Deepseek request content: %s", content)
 	request := clients.LLMRequest{

@@ -8,17 +8,15 @@ import (
 type JobAgregatorProvider interface {
 	ApplyToVacancy(resumeID, vacancyID, coverLetter string) error
 	GetResumeByID(resumeID string) (*models.Resume, error)
-	GetShortResumeByID(resumeID string) (*models.ResumeShort, error)
 	GetVacancyByID(vacancyID string) (*models.Vacancy, error)
-	GetShortVacancyByID(vacancyID string) (*models.VacancyShort, error)
-	GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error)
-	GetShortSimilarVacancies(resumeID string) ([]models.VacancyShort, error)
+	GetFirstSuitableVacancy(resumeID string) (*models.Vacancy, error)
+	GetSimilarVacancies(resumeID string) ([]models.Vacancy, error)
 	SetAccessToken(token string)
 }
 
 // LLMProvider определяет методы для работы с генераторами текста
 type LLMProvider interface {
-	GenerateCoverLetter(resume *models.ResumeShort, vacancy *models.VacancyShort) (string, error)
+	GenerateCoverLetter(resume *models.Resume, vacancy *models.Vacancy) (string, error)
 }
 
 // ApplicationService объединяет работу с вакансиями и генерацией текста

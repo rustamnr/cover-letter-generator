@@ -3,8 +3,10 @@ package server
 import (
 	"net/http"
 
-	"github.com/rustamnr/cover-letter-generator/internal/clients"
-	"github.com/rustamnr/cover-letter-generator/internal/handlers"
+	clients_deepseek "github.com/rustamnr/cover-letter-generator/internal/clients/deepseek"
+	clients_hh "github.com/rustamnr/cover-letter-generator/internal/clients/hh"
+	handlers_app "github.com/rustamnr/cover-letter-generator/internal/handlers/app"
+	handlers_hh "github.com/rustamnr/cover-letter-generator/internal/handlers/hh"
 	"github.com/rustamnr/cover-letter-generator/internal/middleware"
 	"github.com/rustamnr/cover-letter-generator/internal/services"
 
@@ -16,8 +18,8 @@ import (
 // registerRoutes настраивает маршруты API
 func registerRoutes(router *gin.Engine) {
 	// Инициализация клиентов
-	hhClient := clients.NewHHClient()
-	deepSeekClient := clients.NewDeepSeekClient()
+	hhClient := clients_hh.NewHHClient()
+	deepSeekClient := clients_deepseek.NewDeepSeekClient()
 
 	vacancyProvider := services.NewHHProvider(hhClient)
 	textGenerator := services.NewDeepSeekService(deepSeekClient)
@@ -26,8 +28,8 @@ func registerRoutes(router *gin.Engine) {
 	applicationService := services.NewApplicationService(vacancyProvider, vacancyQueue, textGenerator)
 
 	// Инициализация хендлеров
-	hhHandler := handlers.NewHHHandler(hhClient)
-	applicationHandler := handlers.NewApplicationHandler(applicationService)
+	hhHandler := handlers_hh.NewHHHandler(hhClient)
+	applicationHandler := handlers_app.NewApplicationHandler(applicationService)
 
 	// Настройка сессий
 	store := cookie.NewStore([]byte("secret"))

@@ -1,14 +1,25 @@
-package handlers
+package handlers_app
 
 import (
 	"net/http"
 
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
+	"github.com/rustamnr/cover-letter-generator/internal/services"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
+
+// ApplicationHandler обрабатывает запросы, связанные с заявками
+type ApplicationHandler struct {
+	service *services.ApplicationService
+}
+
+// NewApplicationHandler создает новый ApplicationHandler
+func NewApplicationHandler(service *services.ApplicationService) *ApplicationHandler {
+	return &ApplicationHandler{service: service}
+}
 
 func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
 	session := sessions.Default(c)
@@ -25,19 +36,19 @@ func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
 		return
 	}
-	resume, err := ap.service.VacancyProvider.GetShortResumeByID(resumeID)
+	resume, err := ap.service.VacancyProvider.GetResumeByID(resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
 		return
 	}
 
-	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstShortSuitableVacancy(resumeID)
+	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstSuitableVacancy(resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
 		return
 	}
 
-	vacancy, err := ap.service.VacancyProvider.GetShortVacancyByID(firstSimilarVacancy.ID)
+	vacancy, err := ap.service.VacancyProvider.GetVacancyByID(firstSimilarVacancy.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
 		return
@@ -58,7 +69,7 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 	var (
 		err         error
 		coverLetter string
-		vacancy     *models.VacancyShort
+		vacancy     *models.Vacancy
 		session     = sessions.Default(c)
 	)
 
@@ -71,7 +82,7 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "vacancy ID is required"})
 		return
 	}
-	vacancy, err = ap.service.VacancyProvider.GetShortVacancyByID(vacancyID)
+	vacancy, err = ap.service.VacancyProvider.GetVacancyByID(vacancyID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting vacancy"})
 		return
@@ -100,7 +111,7 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 	// Generate cover letter if required
 	if vacancy.ResponseLetterRequired {
 		// Get resume by ID from job portal
-		resume, err := ap.service.VacancyProvider.GetShortResumeByID(resumeID)
+		resume, err := ap.service.VacancyProvider.GetResumeByID(resumeID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error getting resume": err.Error()})
 			return
@@ -151,7 +162,7 @@ func (ap *ApplicationHandler) ApplyToVacansies(c *gin.Context) {
 		return
 	}
 
-	vacancies, err := ap.service.VacancyProvider.GetShortSimilarVacancies(resumeID)
+	vacancies, err := ap.service.VacancyProvider.GetSimilarVacancies(resumeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error getting similar vacancies": err.Error()})
 		return

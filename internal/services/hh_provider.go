@@ -1,7 +1,7 @@
 package services
 
 import (
-	"github.com/rustamnr/cover-letter-generator/internal/clients"
+	clients "github.com/rustamnr/cover-letter-generator/internal/clients/hh"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
 )
 
@@ -21,24 +21,16 @@ func (h *HHProvider) GetResumeByID(resumeID string) (*models.Resume, error) {
 	return h.client.GetResume(resumeID)
 }
 
-func (h *HHProvider) GetShortResumeByID(resumeID string) (*models.ResumeShort, error) {
-	return h.client.GetShortResume(resumeID)
-}
-
 func (h *HHProvider) GetVacancyByID(vacancyID string) (*models.Vacancy, error) {
 	return h.client.GetVacancyByID(vacancyID)
 }
 
-func (h *HHProvider) GetShortVacancyByID(vacancyID string) (*models.VacancyShort, error) {
-	return h.client.GetShortVacancyByID(vacancyID)
+func (h *HHProvider) GetFirstSuitableVacancy(resumeID string) (*models.Vacancy, error) {
+	return h.client.GetFirstSuitableVacancy(resumeID)
 }
 
-func (h *HHProvider) GetFirstShortSuitableVacancy(resumeID string) (*models.VacancyShort, error) {
-	return h.client.GetFirstShortSuitableVacancy(resumeID)
-}
-
-func (h *HHProvider) GetShortSimilarVacancies(resumeID string) ([]models.VacancyShort, error) {
-	return h.client.GetShortSimilarVacancies(resumeID, nil)
+func (h *HHProvider) GetSimilarVacancies(resumeID string) ([]models.Vacancy, error) {
+	return h.client.GetSimilarVacancies(resumeID, nil)
 }
 
 func (h *HHProvider) SetAccessToken(token string) {
