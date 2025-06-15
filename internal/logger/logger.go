@@ -45,3 +45,11 @@ func Debug(msg string) {
 func Debugf(format string, v ...interface{}) {
 	log.Debug().Msgf(format, v...)
 }
+
+func Warn(msg string) {
+	log.Warn().Msg(msg)
+}
+
+func Warnf(format string, v ...interface{}) {
+	log.Warn().Msgf(format, v...)
+}

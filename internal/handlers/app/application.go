@@ -2,8 +2,10 @@ package handlers_app
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/rustamnr/cover-letter-generator/internal/constants"
+	"github.com/rustamnr/cover-letter-generator/internal/logger"
 	"github.com/rustamnr/cover-letter-generator/internal/models"
 	"github.com/rustamnr/cover-letter-generator/internal/services"
 
@@ -21,51 +23,7 @@ func NewApplicationHandler(service *services.ApplicationService) *ApplicationHan
 	return &ApplicationHandler{service: service}
 }
 
-func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
-	session := sessions.Default(c)
-	ap.service.VacancyProvider.SetAccessToken(session.Get(constants.AccessToken).(string))
-
-	// Get current user resume
-	currentResume := session.Get(constants.CurrentResumeID)
-	if currentResume == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
-		return
-	}
-	resumeID, ok := currentResume.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
-		return
-	}
-	resume, err := ap.service.VacancyProvider.GetResumeByID(resumeID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
-		return
-	}
-
-	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstSuitableVacancy(resumeID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
-		return
-	}
-
-	vacancy, err := ap.service.VacancyProvider.GetVacancyByID(firstSimilarVacancy.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
-		return
-	}
-
-	coverLetter, err := ap.service.TextGenerator.GenerateCoverLetter(resume, vacancy)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error generating cover letter"})
-		return
-	}
-
-	c.Set("cover_letter", coverLetter)
-
-	c.JSON(http.StatusOK, gin.H{"cover_letter": coverLetter, "vacancy": vacancy.ID, "resume": resume.ID})
-}
-
-func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
+func (ap *ApplicationHandler) ApplyToVacancyByID(c *gin.Context) {
 	var (
 		err         error
 		coverLetter string
@@ -142,13 +100,19 @@ func (ap *ApplicationHandler) ApplyToVacancy(c *gin.Context) {
 	})
 }
 
-func (ap *ApplicationHandler) ApplyToVacansies(c *gin.Context) {
-	var (
-		// err     error
-		session = sessions.Default(c)
-	)
-
+func (ap *ApplicationHandler) ApplyToVacancies(c *gin.Context) {
+	session := sessions.Default(c)
 	ap.service.VacancyProvider.SetAccessToken(session.Get(constants.AccessToken).(string))
+
+	applyLimitQuery := c.Query("apply_limit")
+	if applyLimitQuery == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "apply limit is required"})
+		return
+	}
+	if _, err := strconv.Atoi(applyLimitQuery); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "apply limit must be a number"})
+		return
+	}
 
 	// Get current user resume from session
 	currentResume := session.Get(constants.CurrentResumeID)
@@ -162,19 +126,89 @@ func (ap *ApplicationHandler) ApplyToVacansies(c *gin.Context) {
 		return
 	}
 
-	vacancies, err := ap.service.VacancyProvider.GetSimilarVacancies(resumeID)
+	vacancies, err := ap.service.VacancyProvider.GetSimilarVacancies(resumeID, applyLimitQuery)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error getting similar vacancies": err.Error()})
 		return
 	}
 
+	// Range over vacancies and apply to each one
 	for _, vacancy := range vacancies {
-		err = ap.service.VacancyProvider.ApplyToVacancy(resumeID, vacancy.ID, "")
+		//Skip vacancy if test is required
+		if vacancy.Test.Required {
+			logger.Warnf("vacancy %s requires a test, skipping application", vacancy.ID)
+			continue
+		}
+
+		var coverLetter string
+		// Generate cover letter if required
+		if vacancy.ResponseLetterRequired {
+			// Get resume by ID from job portal
+			resume, err := ap.service.VacancyProvider.GetResumeByID(resumeID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error getting resume": err.Error()})
+				return
+			}
+
+			// Generate cover letter using LLM service
+			coverLetter, err = ap.service.TextGenerator.GenerateCoverLetter(resume, &vacancy)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error generating cover letter": err.Error()})
+				return
+			}
+		}
+
+		// Apply to vacancy on job portal
+		err = ap.service.VacancyProvider.ApplyToVacancy(resumeID, vacancy.ID, coverLetter)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error applying to vacancy": err.Error()})
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "successfully applied to all vacancies"})
+	c.JSON(http.StatusOK, gin.H{"message": "successfully applied to vacancies"})
+}
+
+func (ap *ApplicationHandler) GenerateCoverLetter(c *gin.Context) {
+	session := sessions.Default(c)
+	ap.service.VacancyProvider.SetAccessToken(session.Get(constants.AccessToken).(string))
+
+	// Get current user resume
+	currentResume := session.Get(constants.CurrentResumeID)
+	if currentResume == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
+		return
+	}
+	resumeID, ok := currentResume.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get user resumes error"})
+		return
+	}
+	resume, err := ap.service.VacancyProvider.GetResumeByID(resumeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting resume"})
+		return
+	}
+
+	firstSimilarVacancy, err := ap.service.VacancyProvider.GetFirstSuitableVacancy(resumeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		return
+	}
+
+	vacancy, err := ap.service.VacancyProvider.GetVacancyByID(firstSimilarVacancy.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error getting similar vacancies"})
+		return
+	}
+
+	coverLetter, err := ap.service.TextGenerator.GenerateCoverLetter(resume, vacancy)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error generating cover letter"})
+		return
+	}
+
+	c.Set("cover_letter", coverLetter)
+
+	c.JSON(http.StatusOK, gin.H{"cover_letter": coverLetter, "vacancy": vacancy.ID, "resume": resume.ID})
 }

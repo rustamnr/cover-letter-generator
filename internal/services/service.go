@@ -10,7 +10,7 @@ type JobAgregatorProvider interface {
 	GetResumeByID(resumeID string) (*models.Resume, error)
 	GetVacancyByID(vacancyID string) (*models.Vacancy, error)
 	GetFirstSuitableVacancy(resumeID string) (*models.Vacancy, error)
-	GetSimilarVacancies(resumeID string) ([]models.Vacancy, error)
+	GetSimilarVacancies(resumeID string, limit string) ([]models.Vacancy, error)
 	SetAccessToken(token string)
 }
 
@@ -22,15 +22,13 @@ type LLMProvider interface {
 // ApplicationService объединяет работу с вакансиями и генерацией текста
 type ApplicationService struct {
 	VacancyProvider JobAgregatorProvider
-	VacancyQueue    VacancyQueue
 	TextGenerator   LLMProvider
 }
 
 // NewApplicationService создает новый ApplicationService
-func NewApplicationService(vacancyProvider JobAgregatorProvider, vacancyQueue VacancyQueue, textGenerator LLMProvider) *ApplicationService {
+func NewApplicationService(vacancyProvider JobAgregatorProvider, textGenerator LLMProvider) *ApplicationService {
 	return &ApplicationService{
 		VacancyProvider: vacancyProvider,
-		VacancyQueue:    vacancyQueue,
 		TextGenerator:   textGenerator,
 	}
 }

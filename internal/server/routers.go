@@ -21,11 +21,12 @@ func registerRoutes(router *gin.Engine) {
 	hhClient := clients_hh.NewHHClient()
 	deepSeekClient := clients_deepseek.NewDeepSeekClient()
 
+	// Инициализация провайдеров
 	vacancyProvider := services.NewHHProvider(hhClient)
 	textGenerator := services.NewDeepSeekService(deepSeekClient)
+
 	// Инициализация сервисов
-	vacancyQueue := services.NewSliceVacancyQueue()
-	applicationService := services.NewApplicationService(vacancyProvider, vacancyQueue, textGenerator)
+	applicationService := services.NewApplicationService(vacancyProvider, textGenerator)
 
 	// Инициализация хендлеров
 	hhHandler := handlers_hh.NewHHHandler(hhClient)
@@ -58,7 +59,8 @@ func registerRoutes(router *gin.Engine) {
 		api.GET("/vacancies/similar", hhHandler.GetSimilarVacancies)
 		api.GET("/vacancies/similar/first", hhHandler.GetFirstSimilarVacancy)
 		api.GET("/vacancies/:vacancy_id", hhHandler.GetVacancyByID)
-		api.POST("/vacancies/apply/:vacancy_id", applicationHandler.ApplyToVacancy)
+		api.POST("/vacancies/apply/:vacancy_id", applicationHandler.ApplyToVacancyByID)
+		api.POST("/vacancies/apply", applicationHandler.ApplyToVacancies)
 
 		api.POST("/cover-letter", applicationHandler.GenerateCoverLetter)
 	}
